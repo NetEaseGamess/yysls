@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>燕云 DIY 面板 · 单文件复刻</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  :root{
+    --bg:#07080a;
+    --panel:rgba(20,23,29,.82);
+    --panel-2:rgba(30,34,42,.55);
+    --line:rgba(214,178,94,.16);
+    --line-strong:rgba(214,178,94,.44);
+    --gold:#f2d48a;
+    --gold-2:#d9b45b;
+    --gold-3:#a98c56;
+    --cyan:#7fd7c4;
+    --text:#e9e4d6;
+    --muted:#8d887b;
+    --red:#e0705f;
+    --green:#8fc98f;
+    --shadow:0 20px 55px rgba(0,0,0,.55);
+  }
+
+  body{
+    min-height:100vh;
+    background:radial-gradient(1400px 700px at 50% -20%,#12151b,#07080a 70%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    font-size:14px;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  /* 极光背景 */
+  body::before{
+    content:"";position:fixed;inset:-18%;z-index:-2;pointer-events:none;
+    background:
+      radial-gradient(42% 34% at 18% 10%, rgba(214,178,94,.17), transparent 62%),
+      radial-gradient(38% 38% at 86% 6%, rgba(80,158,178,.13), transparent 64%),
+      radial-gradient(48% 42% at 58% 96%, rgba(186,116,52,.14), transparent 66%);
+    filter:blur(28px);
+    animation:drift 20s ease-in-out infinite alternate;
+  }
+  /* 网格 + 顶部聚光 */
+  body::after{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+    background-size:54px 54px;
+    -webkit-mask-image:radial-gradient(ellipse at 50% 0%, #000 0%, transparent 76%);
+    mask-image:radial-gradient(ellipse at 50% 0%, #000 0%, transparent 76%);
+  }
+
+  ::selection{background:rgba(242,212,138,.28);color:#fff}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:rgba(255,255,255,.02)}
+  ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(242,212,138,.3),rgba(169,140,86,.25));border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(242,212,138,.5),rgba(169,140,86,.4))}
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    position:relative;
+    display:flex;align-items:center;justify-content:space-between;gap:18px;
+    padding:24px 26px 16px;max-width:1760px;margin:0 auto;
+  }
+  .topbar::after{
+    content:"";position:absolute;left:26px;right:26px;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(214,178,94,.45) 22%,rgba(127,215,196,.28) 55%,transparent);
+  }
+  .brand{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .mark{
+    width:42px;height:42px;flex:none;display:grid;place-items:center;
+    border-radius:12px;font-family:"KaiTi","STKaiti","Kaiti SC",serif;
+    font-size:22px;font-weight:700;color:#1b1608;
+    background:linear-gradient(145deg,#f7e7b6,#d9b45b 55%,#a98c56);
+    box-shadow:0 0 24px rgba(242,212,138,.35),inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  .brand-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .brand h1{
+    margin:0;font-family:"KaiTi","STKaiti","Kaiti SC","Songti SC",serif;
+    font-size:27px;letter-spacing:5px;font-weight:700;line-height:1.1;
+    background:linear-gradient(100deg,#f7e7b6,#e8c46a 32%,#fff6d8 50%,#d9b45b 68%,#f7e7b6);
+    background-size:220% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:sheen 8s linear infinite;
+  }
+  .brand .sub{color:var(--muted);font-size:12px;letter-spacing:1.6px}
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:7px 13px;border-radius:999px;
+    border:1px solid var(--line);
+    background:linear-gradient(140deg,rgba(242,212,138,.09),rgba(242,212,138,.02));
+    color:var(--gold-3);font-size:12px;white-space:nowrap;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .chip::before{
+    content:"";width:6px;height:6px;border-radius:50%;flex:none;
+    background:var(--cyan);box-shadow:0 0 9px var(--cyan);
+    animation:pulse 2.6s ease-in-out infinite;
+  }
+  .chip b{color:var(--gold);font-weight:600}
+
+  /* ---------- 布局 ---------- */
+  .layout{
+    max-width:1760px;margin:0 auto;padding:16px 26px 44px;
+    display:grid;grid-template-columns:352px 352px minmax(560px,1fr);
+    gap:16px;align-items:start;
+  }
+  .col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+  /* ---------- 卡片 ---------- */
+  .card{
+    position:relative;border-radius:15px;padding:16px;
+    border:1px solid transparent;
+    background:
+      linear-gradient(168deg,rgba(27,31,38,.88),rgba(11,13,17,.92)) padding-box,
+      linear-gradient(142deg,rgba(242,212,138,.42),rgba(242,212,138,.05) 40%,rgba(127,215,196,.16) 70%,rgba(242,212,138,.24)) border-box;
+    box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.045);
+    backdrop-filter:blur(14px);
+    overflow:hidden;
+    animation:rise .55s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .card::after{
+    content:"";position:absolute;top:-60%;left:-70%;width:55%;height:220%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);
+    transform:rotate(18deg);pointer-events:none;
+    transition:left .85s cubic-bezier(.3,.7,.3,1);
+  }
+  .card:hover::after{left:125%}
+  .col:nth-child(2) .card{animation-delay:.06s}
+  .col:nth-child(3) .card{animation-delay:.12s}
+  .col .card:nth-child(2){animation-delay:.1s}
+  .col .card:nth-child(3){animation-delay:.18s}
+
+  .card-title{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-family:"KaiTi","STKaiti",serif;font-size:16px;letter-spacing:2px;
+    color:var(--gold);font-weight:700;margin-bottom:13px;
+  }
+  .card-title::before{
+    content:"";width:3px;height:15px;border-radius:2px;flex:none;margin-right:-2px;
+    background:linear-gradient(180deg,var(--gold),rgba(242,212,138,.15));
+    box-shadow:0 0 10px rgba(242,212,138,.55);
+  }
+  .card-title > :first-child{margin-right:auto}
+  .card-title .extra{font-family:inherit;font-size:12px;letter-spacing:0;color:var(--muted);font-weight:400}
+
+  /* ---------- 流派 ---------- */
+  .build-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .build-btn{
+    position:relative;overflow:hidden;appearance:none;cursor:pointer;text-align:left;
+    background:linear-gradient(160deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+    border:1px solid rgba(255,255,255,.075);
+    border-radius:10px;padding:10px 11px;color:var(--text);
+    transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+    font-family:inherit;
+  }
+  .build-btn::before{
+    content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;
+    background:linear-gradient(180deg,var(--gold),rgba(242,212,138,.1));
+    opacity:0;transition:opacity .18s ease;
+  }
+  .build-btn:hover{
+    transform:translateY(-1px);
+    border-color:rgba(242,212,138,.32);
+    background:linear-gradient(160deg,rgba(242,212,138,.09),rgba(242,212,138,.02));
+  }
+  .build-btn .bname{display:block;font-size:14px;font-weight:600;letter-spacing:.6px;padding-left:2px;transition:padding .18s ease}
+  .build-btn .bmeta{display:block;margin-top:4px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:2px}
+  .build-btn.is-active{
+    border-color:rgba(242,212,138,.55);
+    background:linear-gradient(150deg,rgba(242,212,138,.18),rgba(242,212,138,.03) 70%);
+    box-shadow:0 0 0 1px rgba(242,212,138,.16) inset,0 12px 26px rgba(0,0,0,.45),0 0 26px rgba(242,212,138,.13);
+  }
+  .build-btn.is-active::before{opacity:1}
+  .build-btn.is-active .bname{color:var(--gold);padding-left:7px}
+  .build-btn.is-active .bmeta{color:var(--gold-3);padding-left:7px}
+
+  /* ---------- 配置 ---------- */
+  .fields{display:flex;flex-direction:column;gap:11px}
+  .field{display:grid;grid-template-columns:70px 1fr;align-items:center;gap:10px}
+  .field > span{color:var(--muted);font-size:12px;letter-spacing:.6px;white-space:nowrap}
+  .field select{
+    width:100%;appearance:none;cursor:pointer;font-family:inherit;
+    background:rgba(0,0,0,.34) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23a98c56' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>") no-repeat right 11px center;
+    border:1px solid rgba(255,255,255,.085);border-radius:9px;
+    padding:10px 28px 10px 11px;color:var(--text);font-size:13px;
+    transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+  }
+  .field select:hover{border-color:rgba(242,212,138,.34);background-color:rgba(0,0,0,.45)}
+  .field select:focus{outline:none;border-color:rgba(242,212,138,.62);box-shadow:0 0 0 3px rgba(242,212,138,.12),0 0 18px rgba(242,212,138,.1)}
+  .field select option{background:#15181e;color:var(--text)}
+  .field select option:disabled{color:#5b574d}
+
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),rgba(127,215,196,.14),transparent);margin:15px 0}
+
+  /* ---------- 已选词条 ---------- */
+  .affix-sum-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:var(--muted);font-size:12px;letter-spacing:.5px}
+  .affix-sum-head b{color:var(--gold);font-weight:600;font-size:13px}
+  .affix-sum-list{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto;padding-right:3px}
+  .affix-sum-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 10px;border-radius:8px;
+    background:linear-gradient(120deg,rgba(255,255,255,.035),rgba(255,255,255,.012));
+    border:1px solid rgba(255,255,255,.05);
+    transition:border-color .16s ease,background .16s ease;
+  }
+  .affix-sum-row:hover{border-color:rgba(242,212,138,.28);background:linear-gradient(120deg,rgba(242,212,138,.07),rgba(242,212,138,.015))}
+  .affix-sum-row .as-label{font-size:12px;color:#cfc8b8}
+  .affix-sum-row .as-label i{font-style:normal;color:var(--gold-3);margin-left:5px}
+  .affix-sum-row .as-value{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .affix-sum-row .as-value small{font-weight:400;color:var(--muted);margin-left:5px;font-size:11px}
+  .empty-hint{padding:22px 8px;text-align:center;color:#6b665c;font-size:12px;letter-spacing:.6px}
+
+  /* ---------- 天赋 ---------- */
+  .talent-group{padding:11px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+  .talent-group:first-child{padding-top:0}
+  .talent-group:last-child{border-bottom:none;padding-bottom:0}
+  .talent-name{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+  .talent-name b{font-size:13px;color:var(--gold);font-weight:600;letter-spacing:.6px}
+  .talent-name .ratio{font-size:11px;color:var(--muted)}
+  .talent-detail{margin-bottom:10px}
+  .talent-detail:last-child{margin-bottom:0}
+  .talent-line{display:flex;justify-content:space-between;gap:8px;font-size:12px;line-height:1.7}
+  .talent-line .k{color:var(--muted);white-space:nowrap}
+  .talent-line .v{color:#d8d1c1;text-align:right;font-variant-numeric:tabular-nums}
+  .talent-line .v b{color:var(--gold);font-weight:600}
+  .talent-bar{position:relative;height:4px;border-radius:3px;background:rgba(255,255,255,.055);overflow:hidden;margin-top:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
+  .talent-bar i{
+    position:relative;display:block;height:100%;border-radius:3px;
+    background:linear-gradient(90deg,rgba(217,180,91,.5),var(--gold) 60%,#fff6d8);
+    box-shadow:0 0 12px rgba(242,212,138,.5);
+    transition:width .55s cubic-bezier(.2,.8,.2,1);
+    overflow:hidden;
+  }
+  .talent-bar i::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);
+    animation:flow 2.4s linear infinite;
+  }
+
+  /* ---------- 汇总属性 ---------- */
+  .summary-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}
+  .summary-head .st{
+    display:flex;align-items:center;gap:9px;
+    font-family:"KaiTi","STKaiti",serif;font-size:16px;letter-spacing:2px;color:var(--gold);font-weight:700;
+  }
+  .summary-head .st::before{
+    content:"";width:3px;height:15px;border-radius:2px;
+    background:linear-gradient(180deg,var(--gold),rgba(242,212,138,.15));
+    box-shadow:0 0 10px rgba(242,212,138,.55);
+  }
+  .summary-head .metric{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--muted)}
+  .summary-head .metric b{
+    font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#fff6d8,var(--gold-2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .attr-list{display:flex;flex-direction:column;gap:2px}
+  .attr-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 10px;border-radius:8px;font-size:13px;
+    transition:background .15s ease;
+  }
+  .attr-row:nth-child(odd){background:rgba(255,255,255,.02)}
+  .attr-row:hover{background:rgba(242,212,138,.055)}
+  .attr-row .attr-label{color:#c9c2b2;font-size:12px;letter-spacing:.3px}
+  .attr-row .attr-value{display:flex;align-items:baseline;gap:5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .attr-row .main{color:#f4efe2;font-weight:600;font-size:13px}
+  .attr-row .raw{color:#8d8677;font-size:12px}
+  .attr-row .danger{color:var(--red);text-shadow:0 0 12px rgba(224,112,95,.35)}
+  .attr-row .good{color:var(--green)}
+
+  /* ---------- 词条表 ---------- */
+  .table-card{padding:12px}
+  .table-scroll{max-height:calc(100vh - 140px);overflow:auto;border-radius:10px}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:660px}
+  thead th{
+    position:sticky;top:0;z-index:3;
+    background:linear-gradient(180deg,rgba(31,35,42,.99),rgba(17,20,25,.99));
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:11px 6px;font-weight:600;font-size:12px;color:var(--gold-3);white-space:nowrap;
+  }
+  thead th.row-head{left:0;z-index:5;text-align:left;padding-left:13px;color:var(--gold)}
+  thead th .col-label{display:block;color:#cfc7b6;font-size:12px;letter-spacing:.6px}
+  thead th .col-label.weapon{color:var(--gold)}
+  thead th .col-count{display:block;margin-top:3px;font-size:10px;color:#797264;font-weight:400;font-variant-numeric:tabular-nums}
+  thead th.is-over .col-count{color:var(--red)}
+  thead th.is-over{box-shadow:inset 0 -2px 0 rgba(224,112,95,.6)}
+  tbody th.row-head{
+    position:sticky;left:0;z-index:2;
+    background:rgba(13,15,19,.98);
+    border-bottom:1px solid rgba(255,255,255,.05);
+    text-align:left;padding:6px 10px 6px 13px;font-weight:500;
+    color:#d6cfbf;font-size:12px;white-space:nowrap;letter-spacing:.4px;
+  }
+  tbody tr.is-group-start th.row-head,
+  tbody tr.is-group-start td{border-top:1px solid rgba(214,178,94,.22)}
+  tbody td{border-bottom:1px solid rgba(255,255,255,.04);padding:4px 5px;text-align:center}
+  tbody tr:hover td{background:rgba(242,212,138,.04)}
+  tbody tr:hover th.row-head{background:#191612;color:var(--gold)}
+  .cell-btn{
+    width:100%;min-width:54px;height:34px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border-radius:8px;cursor:pointer;font-family:inherit;
+    border:1px solid rgba(255,255,255,.075);
+    background:linear-gradient(170deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+    color:#a9a294;font-size:11px;font-variant-numeric:tabular-nums;letter-spacing:.2px;
+    transition:transform .13s ease,border-color .13s ease,color .13s ease,background .13s ease,box-shadow .13s ease;
+  }
+  .cell-btn:hover:not(:disabled){
+    border-color:rgba(242,212,138,.5);color:var(--gold);
+    background:linear-gradient(170deg,rgba(242,212,138,.12),rgba(242,212,138,.03));
+    box-shadow:0 0 16px rgba(242,212,138,.1);
+  }
+  .cell-btn:active:not(:disabled){transform:translateY(1px) scale(.98)}
+  .cell-btn.is-active{
+    border-color:rgba(255,246,216,.6);
+    background:linear-gradient(175deg,#f7e3ae,#d9b45b 70%);
+    color:#221c0e;font-weight:700;
+    box-shadow:0 0 18px rgba(242,212,138,.38),inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  .cell-btn:disabled{color:#4c4840;cursor:not-allowed;background:rgba(255,255,255,.012);border-color:rgba(255,255,255,.035)}
+  td.is-over .cell-btn:not(:disabled){border-color:rgba(224,112,95,.3)}
+
+  .foot{
+    max-width:1760px;margin:0 auto;padding:0 26px 30px;
+    color:#666156;font-size:11px;letter-spacing:.5px;line-height:1.9;
+    border-top:1px solid rgba(255,255,255,.04);padding-top:14px;
+  }
+  .foot code{color:#9a9282;font-family:ui-monospace,Consolas,monospace}
+
+  @keyframes drift{
+    from{transform:translate3d(-2%,-1%,0) scale(1)}
+    to{transform:translate3d(3%,2%,0) scale(1.07)}
+  }
+  @keyframes sheen{to{background-position:-220% 0}}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes flow{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+  @keyframes pulse{0%,100%{opacity:.5;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+  }
+
+  @media (max-width:1400px){
+    .layout{grid-template-columns:330px 330px minmax(480px,1fr)}
+  }
+  @media (max-width:1180px){
+    .layout{grid-template-columns:1fr 1fr}
+    .col-right{grid-column:1 / -1}
+    .table-scroll{max-height:none}
+  }
+  @media (max-width:780px){
+    .layout{grid-template-columns:1fr;padding:12px 13px 30px}
+    .col-right{grid-column:auto}
+    .topbar{padding:18px 14px 12px}
+    .topbar::after{left:14px;right:14px}
+    .brand h1{font-size:21px;letter-spacing:3px}
+    .mark{width:36px;height:36px;font-size:19px}
+    .table-scroll{max-height:70vh}
+    .foot{padding:14px 14px 26px}
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">燕</span>
+      <div class="brand-text">
+        <h1>燕云 · DIY 面板</h1>
+        <span class="sub">流派 · 心法 · 套装 · 词条 → 汇总属性</span>
+      </div>
+    </div>
+    <span class="chip">数据版本 <b id="versionTag">--</b></span>
+  </header>
+
+  <main class="layout">
+    <section class="col col-left">
+      <div class="card">
+        <div class="card-title"><span>流派</span></div>
+        <div class="build-grid" id="buildGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>武学天赋奖励</span></div>
+        <div id="talentBody"></div>
+      </div>
+
+      <div class="card">
+        <div class="summary-head">
+          <span class="st">汇总属性</span>
+          <span class="metric">已选词条 <b id="affixTotal">0</b></span>
+        </div>
+        <div class="attr-list" id="summaryRows"></div>
+      </div>
+    </section>
+
+    <section class="col col-mid">
+      <div class="card">
+        <div class="card-title"><span>配置</span></div>
+        <div class="fields" id="configFields"></div>
+        <div class="divider"></div>
+        <div class="affix-sum-head">
+          <span>已选装备词条</span>
+          <b id="affixCount">0 条</b>
+        </div>
+        <div class="affix-sum-list" id="affixSummary"></div>
+      </div>
+    </section>
+
+    <section class="col col-right">
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table id="affixTable"></table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="foot">
+    本页为纯前端复刻，所有数值均来自内置配置表，不请求任何后端。<br />
+    承音值取词条基础值（心法/套装/武库等固定属性按原规则计入）；增益抗性 <code>1.3225</code> 仅修正装备词条来源的增伤/穿透。
+  </div>
+
+  <script id="panel-data" type="application/json">{"exportedAt":"2026-10-16 15:59:15","currentVersion":{"key":"115_NLXH_UP","name":"南吕相和-上半","enabled":true,"remark":""},"buildKeys":["LIESHI_WEI","LIESHI_JUN","MINGJIN_HONG","MINGJIN_YING","POZHU_CHEN","POZHU_YUAN","POZHU_FENG","QIANSI_YI","QIANSI_YU","QIANSI_LIN","COMMON","POZHU_ZUN"],"keyMap":{"EXTERNAL_DAMAGE":{"key":"EXTERNAL_DAMAGE","name":"外功伤害加成","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"CRITICAL_DAMAGE":{"key":"CRITICAL_DAMAGE","name":"会心伤害加成","keyCategorys":["attribute","other"],"isPercent":true,"remark":"","icon":""},"CRITICAL_HEAL_DAMAGE":{"key":"CRITICAL_HEAL_DAMAGE","name":"会心治疗加成","keyCategorys":["attribute","other"],"isPercent":true,"remark":"","icon":""},"INSIGHT_DAMAGE":{"key":"INSIGHT_DAMAGE","name":"会意伤害加成","keyCategorys":["attribute","other"],"isPercent":true,"remark":"","icon":""},"MINGJIN_DAMAGE":{"key":"MINGJIN_DAMAGE","name":"鸣金加成","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"POZHU_DAMAGE":{"key":"POZHU_DAMAGE","name":"破竹加成","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"QIANSI_DAMAGE":{"key":"QIANSI_DAMAGE","name":"牵丝加成","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"LIESHI_DAMAGE":{"key":"LIESHI_DAMAGE","name":"裂石加成","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"COMMON_DAMAGE":{"key":"COMMON_DAMAGE","name":"通用增伤","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"DIRECT_CRITICAL_RATE":{"key":"DIRECT_CRITICAL_RATE","name":"直接会心率","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"DIRECT_INSIGHT_RATE":{"key":"DIRECT_INSIGHT_RATE","name":"直接会意率","keyCategorys":["other"],"isPercent":true,"remark":"","icon":""},"MIN_WUXIANG_ATTACK":{"key":"MIN_WUXIANG_ATTACK","name":"最小无相攻击","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"MAX_WUXIANG_ATTACK":{"key":"MAX_WUXIANG_ATTACK","name":"最大无相攻击","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"WUXIANG_PENETRATION":{"key":"WUXIANG_PENETRATION","name":"无相穿透","keyCategorys":["attribute","pitch"],"isPercent":false,"remark":"","icon":""},"MAX_EXTERNAL_ATTACK":{"key":"MAX_EXTERNAL_ATTACK","name":"最大外功攻击","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"MIN_EXTERNAL_ATTACK":{"key":"MIN_EXTERNAL_ATTACK","name":"最小外功攻击","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"EXTERNAL_PENETRATION":{"key":"EXTERNAL_PENETRATION","name":"外功穿透","keyCategorys":["attribute","pitch"],"isPercent":false,"remark":"","icon":""},"MIN":{"key":"MIN","name":"敏","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"SHI":{"key":"SHI","name":"势","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"JIN":{"key":"JIN","name":"劲","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"TI":{"key":"TI","name":"体","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"YU":{"key":"YU","name":"御","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"ACCURACY_RATE":{"key":"ACCURACY_RATE","name":"精准率","keyCategorys":["attribute","tuning"],"isPercent":true,"remark":"","icon":""},"INSIGHT_RATE":{"key":"INSIGHT_RATE","name":"会意率","keyCategorys":["attribute","tuning"],"isPercent":true,"remark":"","icon":""},"CRITICAL_RATE":{"key":"CRITICAL_RATE","name":"会心率","keyCategorys":["attribute","tuning"],"isPercent":true,"remark":"","icon":""},"LEVEL_RESISTANCE":{"key":"LEVEL_RESISTANCE","name":"等级抗性","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"EXTERNAL_DEFENCE":{"key":"EXTERNAL_DEFENCE","name":"外功防御","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"MAX_HP":{"key":"MAX_HP","name":"气血最大值","keyCategorys":["attribute","tuning"],"isPercent":false,"remark":"","icon":""},"LIESHI_WEI":{"key":"LIESHI_WEI","name":"裂石威","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"LIESHI_JUN":{"key":"LIESHI_JUN","name":"裂石钧","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"MINGJIN_HONG":{"key":"MINGJIN_HONG","name":"鸣金虹","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"MINGJIN_YING":{"key":"MINGJIN_YING","name":"鸣金影","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"POZHU_CHEN":{"key":"POZHU_CHEN","name":"破竹尘","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"POZHU_YUAN":{"key":"POZHU_YUAN","name":"破竹鸢","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"POZHU_FENG":{"key":"POZHU_FENG","name":"破竹风","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"QIANSI_YI":{"key":"QIANSI_YI","name":"牵丝翊","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"QIANSI_YU":{"key":"QIANSI_YU","name":"牵丝玉","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"QIANSI_LIN":{"key":"QIANSI_LIN","name":"牵丝霖","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_YUDOU":{"key":"SET_WEAPON_YUDOU","name":"玉斗","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_FEISUN":{"key":"SET_WEAPON_FEISUN","name":"飞隼","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_YANGUI":{"key":"SET_WEAPON_YANGUI","name":"燕归","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_LIANXING":{"key":"SET_WEAPON_LIANXING","name":"连星","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_DUANYUE":{"key":"SET_WEAPON_DUANYUE","name":"断岳","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_HANTIAN":{"key":"SET_WEAPON_HANTIAN","name":"撼天","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_CAIYUN":{"key":"SET_WEAPON_CAIYUN","name":"裁云","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_SHIYU":{"key":"SET_WEAPON_SHIYU","name":"时雨","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_YANLIU":{"key":"SET_WEAPON_YANLIU","name":"烟柳","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_BOW_ZHUIYING":{"key":"SET_BOW_ZHUIYING","name":"追影","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_BOW_JINGXIAN":{"key":"SET_BOW_JINGXIAN","name":"惊弦","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"SET_BOW_YINYU":{"key":"SET_BOW_YINYU","name":"饮羽","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_PENDANT":{"key":"EQUIPMENT_PENDANT","name":"佩","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_RING":{"key":"EQUIPMENT_RING","name":"环","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_CLOTH":{"key":"EQUIPMENT_CLOTH","name":"衣","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_SHOES":{"key":"EQUIPMENT_SHOES","name":"鞋","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_HEAD":{"key":"EQUIPMENT_HEAD","name":"头","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_HAND":{"key":"EQUIPMENT_HAND","name":"手","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_SWORD":{"key":"EQUIPMENT_WEAPON_SWORD","name":"武器-剑","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_SPEAR":{"key":"EQUIPMENT_WEAPON_SPEAR","name":"武器-枪","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_FAN":{"key":"EQUIPMENT_WEAPON_FAN","name":"武器-扇","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_UMBRELLA":{"key":"EQUIPMENT_WEAPON_UMBRELLA","name":"武器-伞","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_ROPE":{"key":"EQUIPMENT_WEAPON_ROPE","name":"武器-绳镖","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_DRUM":{"key":"EQUIPMENT_WEAPON_DRUM","name":"武器-鼓","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_BLADE":{"key":"EQUIPMENT_WEAPON_BLADE","name":"武器-横刀","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_2BLADE":{"key":"EQUIPMENT_WEAPON_2BLADE","name":"武器-双刀","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_BIGBLADE":{"key":"EQUIPMENT_WEAPON_BIGBLADE","name":"武器-陌刀","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"EQUIPMENT_WEAPON_FIST":{"key":"EQUIPMENT_WEAPON_FIST","name":"武器-拳套","keyCategorys":["equipment"],"isPercent":false,"remark":"","icon":""},"XF_XMP":{"key":"XF_XMP","name":"弦墨篇","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_QTS":{"key":"XF_QTS","name":"擒天势","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_FZY":{"key":"XF_FZY","name":"风知意","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_SHJY":{"key":"XF_SHJY","name":"山河绝韵","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_HSYL":{"key":"XF_HSYL","name":"花上月令","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_KZDF":{"key":"XF_KZDF","name":"抗造大法","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_CHJ":{"key":"XF_CHJ","name":"穿喉决","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_YJYW":{"key":"XF_YJYW","name":"移经易武","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_JCY":{"key":"XF_JCY","name":"君臣药","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_NSZ":{"key":"XF_NSZ","name":"凝神章","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_SQZZ":{"key":"XF_SQZZ","name":"三穷致知","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_GZBC":{"key":"XF_GZBC","name":"孤忠不辞","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_FYZS":{"key":"XF_FYZS","name":"扶摇直上","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_STBY":{"key":"XF_STBY","name":"霜天白夜","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_CLP":{"key":"XF_CLP","name":"春雷篇","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_ZDZX":{"key":"XF_ZDZX","name":"纵地摘星","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_QSF":{"key":"XF_QSF","name":"千山法","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_WMXF":{"key":"XF_WMXF","name":"无名心法","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_ZLXJ":{"key":"XF_ZLXJ","name":"逐狼心经","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_WMG":{"key":"XF_WMG","name":"威猛歌","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_SHNN":{"key":"XF_SHNN","name":"所恨年年","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_JQZH":{"key":"XF_JQZH","name":"剑气纵横","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_WCJX":{"key":"XF_WCJX","name":"忘川绝响","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_XMNY":{"key":"XF_XMNY","name":"心弥泥鱼","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_JLQX":{"key":"XF_JLQX","name":"极乐泣血","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_DTG":{"key":"XF_DTG","name":"大唐歌","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_SZXM":{"key":"XF_SZXM","name":"绳舟行木","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_XHG":{"key":"XF_XHG","name":"相和歌","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_DSZG":{"key":"XF_DSZG","name":"断石之构","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_ZRG":{"key":"XF_ZRG","name":"征人归","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_QYYH":{"key":"XF_QYYH","name":"千营一呼","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_YSG":{"key":"XF_YSG","name":"易水歌","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"QIANSI_YI_XYCY":{"key":"QIANSI_YI_XYCY","name":"杏游草野","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"QIANSI_YI_WDNC":{"key":"QIANSI_YI_WDNC","name":"文动霓裳","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"LIESHI_WEI_JFDF":{"key":"LIESHI_WEI_JFDF","name":"嗟夫刀法","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"LIESHI_WEI_BFFLQ":{"key":"LIESHI_WEI_BFFLQ","name":"八方风雷枪","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"MINGJIN_HONG_WMQF":{"key":"MINGJIN_HONG_WMQF","name":"无名枪法","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"MINGJIN_HONG_WMJF":{"key":"MINGJIN_HONG_WMJF","name":"无名剑法","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"MINGJIN_YING_JJJJ":{"key":"MINGJIN_YING_JJJJ","name":"积矩九剑","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"MINGJIN_YING_JQJSQ":{"key":"MINGJIN_YING_JQJSQ","name":"九曲惊神枪","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"LIESHI_JUN_SFPZ":{"key":"LIESHI_JUN_SFPZ","name":"十方破阵","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"LIESHI_JUN_ZXDF":{"key":"LIESHI_JUN_ZXDF","name":"斩雪刀法","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"QIANSI_YU_QSZB":{"key":"QIANSI_YU_QSZB","name":"青山执笔","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"QIANSI_YU_JCCS":{"key":"QIANSI_YU_JCCS","name":"九重春色","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"QIANSI_LIN_QXYHG":{"key":"QIANSI_LIN_QXYHG","name":"千香引魂蛊","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"QIANSI_LIN_MCYD":{"key":"QIANSI_LIN_MCYD","name":"明川药典","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_CHEN_SZXY":{"key":"POZHU_CHEN_SZXY","name":"粟子行云","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_CHEN_ZMYC":{"key":"POZHU_CHEN_ZMYC","name":"醉梦游春","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_YUAN_TZCX":{"key":"POZHU_YUAN_TZCX","name":"天志垂象","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_YUAN_QJST":{"key":"POZHU_YUAN_QJST","name":"千机索天","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_FENG_SZYC":{"key":"POZHU_FENG_SZYC","name":"粟子游尘","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_FENG_NLSG":{"key":"POZHU_FENG_NLSG","name":"泥犁三垢","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"MINGJIN":{"key":"MINGJIN","name":"鸣金","keyCategorys":["element"],"isPercent":false,"remark":"","icon":""},"POZHU":{"key":"POZHU","name":"破竹","keyCategorys":["element"],"isPercent":false,"remark":"","icon":""},"QIANSI":{"key":"QIANSI","name":"牵丝","keyCategorys":["element"],"isPercent":false,"remark":"","icon":""},"LIESHI":{"key":"LIESHI","name":"裂石","keyCategorys":["element"],"isPercent":false,"remark":"","icon":""},"105_JJZY_DOWN":{"key":"105_JJZY_DOWN","name":"夹钟奏雅-下半","keyCategorys":["version"],"isPercent":false,"remark":"","icon":""},"WMJF_XLJZS":{"key":"WMJF_XLJZS","name":"无名剑法·蓄力技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"JJJJ_LXZS":{"key":"JJJJ_LXZS","name":"积矩九剑·流血增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"JCCS_TSJZS":{"key":"JCCS_TSJZS","name":"九重春色·特殊技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"WDNC_TSJZS":{"key":"WDNC_TSJZS","name":"文动霓裳·特殊技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"SZYC_SSZS":{"key":"SZYC_SSZS","name":"粟子游尘·鼠鼠增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"ZMYC_WXJZS":{"key":"ZMYC_WXJZS","name":"醉梦游春·武学技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"TZCX_XLJZS":{"key":"TZCX_XLJZS","name":"天志垂象·蓄力技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"JFDF_XLJZS":{"key":"JFDF_XLJZS","name":"嗟夫刀法·蓄力技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"SFPZ_XLJZS":{"key":"SFPZ_XLJZS","name":"十方破阵·蓄力技增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"MCYD_ZLJZL":{"key":"MCYD_ZLJZL","name":"明川药典·治疗技增疗","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"MIN_MINGJIN_ATTACK":{"key":"MIN_MINGJIN_ATTACK","name":"最小鸣金攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MAX_MINGJIN_ATTACK":{"key":"MAX_MINGJIN_ATTACK","name":"最大鸣金攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MIN_LIESHI_ATTACK":{"key":"MIN_LIESHI_ATTACK","name":"最小裂石攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MAX_LIESHI_ATTACK":{"key":"MAX_LIESHI_ATTACK","name":"最大裂石攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MIN_QIANSI_ATTACK":{"key":"MIN_QIANSI_ATTACK","name":"最小牵丝攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MAX_QIANSI_ATTACK":{"key":"MAX_QIANSI_ATTACK","name":"最大牵丝攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MIN_POZHU_ATTACK":{"key":"MIN_POZHU_ATTACK","name":"最小破竹攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"MAX_POZHU_ATTACK":{"key":"MAX_POZHU_ATTACK","name":"最大破竹攻击","keyCategorys":["tuning"],"isPercent":false,"remark":"","icon":""},"WUXUE_DAMAGE":{"key":"WUXUE_DAMAGE","name":"全武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"PLAYER_DAMAGE":{"key":"PLAYER_DAMAGE","name":"对玩家单位增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"BOSS_DAMAGE":{"key":"BOSS_DAMAGE","name":"对首领单位增伤","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"SWORD_DAMAGE":{"key":"SWORD_DAMAGE","name":"剑武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"SPEAR_DAMAGE":{"key":"SPEAR_DAMAGE","name":"枪武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"FAN_DAMAGE":{"key":"FAN_DAMAGE","name":"扇武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"UMBRELLA_DAMAGE":{"key":"UMBRELLA_DAMAGE","name":"伞武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"ROPE_DAMAGE":{"key":"ROPE_DAMAGE","name":"绳镖武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"DRUM_DAMAGE":{"key":"DRUM_DAMAGE","name":"鼓武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"BLADE_DAMAGE":{"key":"BLADE_DAMAGE","name":"横刀武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"2BLADE_DAMAGE":{"key":"2BLADE_DAMAGE","name":"双刀武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"BIGBLADE_DAMAGE":{"key":"BIGBLADE_DAMAGE","name":"陌刀武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"FIST_DAMAGE":{"key":"FIST_DAMAGE","name":"拳套武学增效","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"SINGLEQS_DAMAGE":{"key":"SINGLEQS_DAMAGE","name":"单体类奇术增伤","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"AOEQS_DAMAGE":{"key":"AOEQS_DAMAGE","name":"群体类奇术增伤","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"COMMON":{"key":"COMMON","name":"通用","keyCategorys":["element","build"],"isPercent":false,"remark":"","icon":""},"LIESHI_PENETRATION":{"key":"LIESHI_PENETRATION","name":"裂石穿透","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"QIANSI_PENETRATION":{"key":"QIANSI_PENETRATION","name":"牵丝穿透","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"MINGJIN_PENETRATION":{"key":"MINGJIN_PENETRATION","name":"鸣金穿透","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"POZHU_PENETRATION":{"key":"POZHU_PENETRATION","name":"破竹穿透","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"SWORD":{"key":"SWORD","name":"剑","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"SPEAR":{"key":"SPEAR","name":"枪","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"FAN":{"key":"FAN","name":"扇","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"UMBRELLA":{"key":"UMBRELLA","name":"伞","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"ROPE":{"key":"ROPE","name":"绳镖","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"DRUM":{"key":"DRUM","name":"鼓","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"BLADE":{"key":"BLADE","name":"横刀","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"2BLADE":{"key":"2BLADE","name":"双刀","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"BIGBLADE":{"key":"BIGBLADE","name":"陌刀","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"FIST":{"key":"FIST","name":"拳","keyCategorys":["weapon_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_QJ":{"key":"SKILLTYPE_QJ","name":"轻击","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_ZJ":{"key":"SKILLTYPE_ZJ","name":"重击","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_WXJ":{"key":"SKILLTYPE_WXJ","name":"武学技","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_TSJ":{"key":"SKILLTYPE_TSJ","name":"特殊技","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_XLJ":{"key":"SKILLTYPE_XLJ","name":"蓄力技","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_QJPS":{"key":"SKILLTYPE_QJPS","name":"轻击派生","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_ZJPS":{"key":"SKILLTYPE_ZJPS","name":"重击派生","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_WXCF":{"key":"SKILLTYPE_WXCF","name":"武学触发","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_YWJ":{"key":"SKILLTYPE_YWJ","name":"易武技","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_JUN_XZCF":{"key":"SKILLTYPE_JUN_XZCF","name":"协战触发","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_JUN_XZXG":{"key":"SKILLTYPE_JUN_XZXG","name":"协战效果","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"PITCH_DAMAGE":{"key":"PITCH_DAMAGE","name":"定音增伤","keyCategorys":["other"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_YUAN_YSZJ":{"key":"SKILLTYPE_YUAN_YSZJ","name":"鹰隼追击","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"SKILLTYPE_YUAN_WYDZ":{"key":"SKILLTYPE_YUAN_WYDZ","name":"无义当诛","keyCategorys":["skill_type"],"isPercent":false,"remark":"","icon":""},"FIXED_DAMAGE":{"key":"FIXED_DAMAGE","name":"固定伤害加成","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"FIXED_DAMAGE_RATE":{"key":"FIXED_DAMAGE_RATE","name":"固定伤害倍率","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"XF_SSWC":{"key":"XF_SSWC","name":"四时无常","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_NZM":{"key":"XF_NZM","name":"怒斩马","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"105_JJZY_UP":{"key":"105_JJZY_UP","name":"夹钟奏雅上半","keyCategorys":["version"],"isPercent":false,"remark":"","icon":""},"110_RBDZ_UP":{"key":"110_RBDZ_UP","name":"蕤宾叠奏-上半","keyCategorys":["version"],"isPercent":false,"remark":"","icon":""},"JCCS_GPDDZS":{"key":"JCCS_GPDDZS","name":"九重春色·高频弹道增伤","keyCategorys":["pitch"],"isPercent":true,"remark":"","icon":""},"BENEFIT_RESISTANCE":{"key":"BENEFIT_RESISTANCE","name":"增益抗性","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"RAID_DAMAGE":{"key":"RAID_DAMAGE","name":"特殊增伤","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""},"SURE_NOGRAZE":{"key":"SURE_NOGRAZE","name":"必定不擦伤","keyCategorys":["other"],"isPercent":false,"remark":"","icon":""},"SURE_CRITICAL":{"key":"SURE_CRITICAL","name":"必定会心","keyCategorys":["other"],"isPercent":false,"remark":"","icon":""},"SURE_INSIGHT":{"key":"SURE_INSIGHT","name":"必定会意","keyCategorys":["other"],"isPercent":false,"remark":"","icon":""},"ZXDF_QZJPSJZS":{"key":"ZXDF_QZJPSJZS","name":"斩雪刀法·轻重击派生技增伤","keyCategorys":["pitch"],"isPercent":false,"remark":"","icon":""},"EXTERNAL_HEAL_DAMAGE":{"key":"EXTERNAL_HEAL_DAMAGE","name":"外功治疗加成","keyCategorys":["other"],"isPercent":false,"remark":"","icon":""},"XF_XHBJ":{"key":"XF_XHBJ","name":"杏花不见","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_QSG":{"key":"XF_QSG","name":"千丝蛊","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_HUANHUA":{"key":"SET_WEAPON_HUANHUA","name":"浣花","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"110_RBDZ_DOWN":{"key":"110_RBDZ_DOWN","name":"蕤宾叠奏-下半","keyCategorys":["version"],"isPercent":false,"remark":"","icon":""},"SET_WEAPON_QINGSHANG":{"key":"SET_WEAPON_QINGSHANG","name":"倾觞","keyCategorys":["set"],"isPercent":false,"remark":"","icon":""},"XF_YZQQ":{"key":"XF_YZQQ","name":"一醉千秋","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_FXZY":{"key":"XF_FXZY","name":"飞仙醉言","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_YBYX":{"key":"XF_YBYX","name":"燕别云岫","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"XF_DJWS":{"key":"XF_DJWS","name":"大卷微身","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"POZHU_ZUN":{"key":"POZHU_ZUN","name":"破竹樽","keyCategorys":["build"],"isPercent":false,"remark":"","icon":""},"POZHU_ZUN_XSQF":{"key":"POZHU_ZUN_XSQF","name":"悬身拳法","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"POZHU_ZUN_DSSJ":{"key":"POZHU_ZUN_DSSJ","name":"断水双诀","keyCategorys":["martial"],"isPercent":false,"remark":"","icon":""},"XSDS_NSJNZS":{"key":"XSDS_NSJNZS","name":"悬身断水·浓醺技能增伤","keyCategorys":["pitch"],"isPercent":false,"remark":"","icon":""},"ALLQS_DAMAGE":{"key":"ALLQS_DAMAGE","name":"全奇术增伤","keyCategorys":["tuning"],"isPercent":true,"remark":"","icon":""},"115_NLXH_UP":{"key":"115_NLXH_UP","name":"南吕相和-上半","keyCategorys":["version"],"isPercent":false,"remark":"","icon":""},"XF_MHTC":{"key":"XF_MHTC","name":"明晦同尘","keyCategorys":["mind"],"isPercent":false,"remark":"","icon":""},"SPECIAL_DAMAGE":{"key":"SPECIAL_DAMAGE","name":"特定增伤","keyCategorys":["attribute"],"isPercent":false,"remark":"","icon":""}},"martials":[{"id":144,"key":"QIANSI_LIN_MCYD","attr":[{"key":"MIN_QIANSI_ATTACK","value":164},{"key":"MAX_QIANSI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_QIANSI_ATTACK","value":447},{"key":"QIANSI_PENETRATION","value":30}],"buildKey":"QIANSI_LIN","elementKey":"QIANSI","equipmentKey":"EQUIPMENT_WEAPON_FAN","versionKey":"115_NLXH_UP"},{"id":137,"key":"QIANSI_LIN_QXYHG","attr":[{"key":"MIN_QIANSI_ATTACK","value":164},{"key":"MAX_QIANSI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_QIANSI_ATTACK","value":447},{"key":"QIANSI_DAMAGE","value":15}],"buildKey":"QIANSI_LIN","elementKey":"QIANSI","equipmentKey":"EQUIPMENT_WEAPON_UMBRELLA","versionKey":"115_NLXH_UP"},{"id":146,"key":"POZHU_ZUN_DSSJ","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_PENETRATION","value":30}],"buildKey":"POZHU_ZUN","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_2BLADE","versionKey":"115_NLXH_UP"},{"id":145,"key":"POZHU_ZUN_XSQF","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_DAMAGE","value":15}],"buildKey":"POZHU_ZUN","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_FIST","versionKey":"115_NLXH_UP"},{"id":143,"key":"POZHU_FENG_NLSG","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_DAMAGE","value":15}],"buildKey":"POZHU_FENG","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_2BLADE","versionKey":"115_NLXH_UP"},{"id":142,"key":"POZHU_FENG_SZYC","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_PENETRATION","value":30}],"buildKey":"POZHU_FENG","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_ROPE","versionKey":"115_NLXH_UP"},{"id":141,"key":"POZHU_YUAN_QJST","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_PENETRATION","value":30}],"buildKey":"POZHU_YUAN","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_ROPE","versionKey":"115_NLXH_UP"},{"id":140,"key":"POZHU_YUAN_TZCX","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_DAMAGE","value":15}],"buildKey":"POZHU_YUAN","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_FIST","versionKey":"115_NLXH_UP"},{"id":139,"key":"POZHU_CHEN_ZMYC","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_DAMAGE","value":15}],"buildKey":"POZHU_CHEN","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_UMBRELLA","versionKey":"115_NLXH_UP"},{"id":138,"key":"POZHU_CHEN_SZXY","attr":[{"key":"MIN_POZHU_ATTACK","value":164},{"key":"MAX_POZHU_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_POZHU_ATTACK","value":447},{"key":"POZHU_PENETRATION","value":30}],"buildKey":"POZHU_CHEN","elementKey":"POZHU","equipmentKey":"EQUIPMENT_WEAPON_ROPE","versionKey":"115_NLXH_UP"},{"id":136,"key":"QIANSI_YU_JCCS","attr":[{"key":"MIN_QIANSI_ATTACK","value":164},{"key":"MAX_QIANSI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_QIANSI_ATTACK","value":447},{"key":"QIANSI_PENETRATION","value":30}],"buildKey":"QIANSI_YU","elementKey":"QIANSI","equipmentKey":"EQUIPMENT_WEAPON_UMBRELLA","versionKey":"115_NLXH_UP"},{"id":135,"key":"QIANSI_YU_QSZB","attr":[{"key":"MIN_QIANSI_ATTACK","value":164},{"key":"MAX_QIANSI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_QIANSI_ATTACK","value":447},{"key":"QIANSI_DAMAGE","value":15}],"buildKey":"QIANSI_YU","elementKey":"QIANSI","equipmentKey":"EQUIPMENT_WEAPON_FAN","versionKey":"115_NLXH_UP"},{"id":134,"key":"LIESHI_JUN_ZXDF","attr":[{"key":"MIN_LIESHI_ATTACK","value":164},{"key":"MAX_LIESHI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_LIESHI_ATTACK","value":447},{"key":"LIESHI_DAMAGE","value":15}],"buildKey":"LIESHI_JUN","elementKey":"LIESHI","equipmentKey":"EQUIPMENT_WEAPON_BLADE","versionKey":"115_NLXH_UP"},{"id":133,"key":"LIESHI_JUN_SFPZ","attr":[{"key":"MIN_LIESHI_ATTACK","value":164},{"key":"MAX_LIESHI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_LIESHI_ATTACK","value":447},{"key":"LIESHI_PENETRATION","value":30}],"buildKey":"LIESHI_JUN","elementKey":"LIESHI","equipmentKey":"EQUIPMENT_WEAPON_BIGBLADE","versionKey":"115_NLXH_UP"},{"id":132,"key":"MINGJIN_YING_JQJSQ","attr":[{"key":"MIN_MINGJIN_ATTACK","value":164},{"key":"MAX_MINGJIN_ATTACK","value":328}],"needKey1":[{"key":"JIN","value":492},{"key":"MAX_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_MINGJIN_ATTACK","value":447},{"key":"MINGJIN_DAMAGE","value":15}],"buildKey":"MINGJIN_YING","elementKey":"MINGJIN","equipmentKey":"EQUIPMENT_WEAPON_SPEAR","versionKey":"115_NLXH_UP"},{"id":131,"key":"MINGJIN_YING_JJJJ","attr":[{"key":"MIN_MINGJIN_ATTACK","value":164},{"key":"MAX_MINGJIN_ATTACK","value":328}],"needKey1":[{"key":"JIN","value":492},{"key":"INSIGHT_RATE","value":7.5},{"key":"MIN_MINGJIN_ATTACK","value":447},{"key":"MINGJIN_PENETRATION","value":30}],"buildKey":"MINGJIN_YING","elementKey":"MINGJIN","equipmentKey":"EQUIPMENT_WEAPON_SWORD","versionKey":"115_NLXH_UP"},{"id":130,"key":"MINGJIN_HONG_WMJF","attr":[{"key":"MIN_MINGJIN_ATTACK","value":164},{"key":"MAX_MINGJIN_ATTACK","value":328}],"needKey1":[{"key":"SHI","value":492},{"key":"MAX_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_MINGJIN_ATTACK","value":447},{"key":"MINGJIN_PENETRATION","value":30}],"buildKey":"MINGJIN_HONG","elementKey":"MINGJIN","equipmentKey":"EQUIPMENT_WEAPON_SWORD","versionKey":"115_NLXH_UP"},{"id":129,"key":"MINGJIN_HONG_WMQF","attr":[{"key":"MIN_MINGJIN_ATTACK","value":164},{"key":"MAX_MINGJIN_ATTACK","value":328}],"needKey1":[{"key":"SHI","value":492},{"key":"INSIGHT_RATE","value":7.5},{"key":"MIN_MINGJIN_ATTACK","value":447},{"key":"MINGJIN_DAMAGE","value":15}],"buildKey":"MINGJIN_HONG","elementKey":"MINGJIN","equipmentKey":"EQUIPMENT_WEAPON_SPEAR","versionKey":"115_NLXH_UP"},{"id":128,"key":"LIESHI_WEI_BFFLQ","attr":[{"key":"MIN_LIESHI_ATTACK","value":164},{"key":"MAX_LIESHI_ATTACK","value":328}],"needKey1":[{"key":"JIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_LIESHI_ATTACK","value":447},{"key":"LIESHI_DAMAGE","value":15}],"buildKey":"LIESHI_WEI","elementKey":"LIESHI","equipmentKey":"EQUIPMENT_WEAPON_SPEAR","versionKey":"115_NLXH_UP"},{"id":127,"key":"LIESHI_WEI_JFDF","attr":[{"key":"MIN_LIESHI_ATTACK","value":164},{"key":"MAX_LIESHI_ATTACK","value":328}],"needKey1":[{"key":"JIN","value":492},{"key":"MAX_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_LIESHI_ATTACK","value":447},{"key":"LIESHI_PENETRATION","value":30}],"buildKey":"LIESHI_WEI","elementKey":"LIESHI","equipmentKey":"EQUIPMENT_WEAPON_BIGBLADE","versionKey":"115_NLXH_UP"},{"id":126,"key":"QIANSI_YI_WDNC","attr":[{"key":"MIN_QIANSI_ATTACK","value":164},{"key":"MAX_QIANSI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"MIN_EXTERNAL_ATTACK","value":129.9},{"key":"MIN_QIANSI_ATTACK","value":447},{"key":"QIANSI_DAMAGE","value":15}],"buildKey":"QIANSI_YI","elementKey":"QIANSI","equipmentKey":"EQUIPMENT_WEAPON_DRUM","versionKey":"115_NLXH_UP"},{"id":125,"key":"QIANSI_YI_XYCY","attr":[{"key":"MIN_QIANSI_ATTACK","value":164},{"key":"MAX_QIANSI_ATTACK","value":328}],"needKey1":[{"key":"MIN","value":492},{"key":"CRITICAL_RATE","value":15},{"key":"MIN_QIANSI_ATTACK","value":447},{"key":"QIANSI_PENETRATION","value":30}],"buildKey":"QIANSI_YI","elementKey":"QIANSI","equipmentKey":"EQUIPMENT_WEAPON_FAN","versionKey":"115_NLXH_UP"}],"arsenals":[{"id":35,"key":"COMMON","attr":[{"key":"MAX_EXTERNAL_ATTACK","value":423},{"key":"MIN_EXTERNAL_ATTACK","value":211}],"versionKey":"115_NLXH_UP"},{"id":34,"key":"LIESHI","attr":[{"key":"MAX_LIESHI_ATTACK","value":423},{"key":"MIN_LIESHI_ATTACK","value":211}],"versionKey":"115_NLXH_UP"},{"id":33,"key":"QIANSI","attr":[{"key":"MAX_QIANSI_ATTACK","value":423},{"key":"MIN_QIANSI_ATTACK","value":211}],"versionKey":"115_NLXH_UP"},{"id":32,"key":"POZHU","attr":[{"key":"MAX_POZHU_ATTACK","value":423},{"key":"MIN_POZHU_ATTACK","value":211}],"versionKey":"115_NLXH_UP"},{"id":31,"key":"MINGJIN","attr":[{"key":"MAX_MINGJIN_ATTACK","value":423},{"key":"MIN_MINGJIN_ATTACK","value":211}],"versionKey":"115_NLXH_UP"}],"equipments":[{"id":84,"key":"EQUIPMENT_RING","name":"沧海云珑","type":"ring","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":152}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":120}],"versionKey":"115_NLXH_UP"},{"id":83,"key":"EQUIPMENT_PENDANT","name":"沧海辟邪","type":"pendant","goldenAttr":[{"key":"MAX_EXTERNAL_ATTACK","value":227}],"purpleAttr":[{"key":"MAX_EXTERNAL_ATTACK","value":179}],"versionKey":"115_NLXH_UP"},{"id":88,"key":"EQUIPMENT_HAND","name":"寒江披膊","type":"hand","goldenAttr":[{"key":"MAX_HP","value":8225},{"key":"EXTERNAL_DEFENCE","value":29}],"purpleAttr":[{"key":"MAX_HP","value":7402},{"key":"EXTERNAL_DEFENCE","value":27}],"versionKey":"115_NLXH_UP"},{"id":87,"key":"EQUIPMENT_HEAD","name":"寒江冠","type":"head","goldenAttr":[{"key":"MAX_HP","value":8225},{"key":"EXTERNAL_DEFENCE","value":29}],"purpleAttr":[{"key":"MAX_HP","value":7402},{"key":"EXTERNAL_DEFENCE","value":27}],"versionKey":"115_NLXH_UP"},{"id":86,"key":"EQUIPMENT_SHOES","name":"寒江缚袴","type":"shoe","goldenAttr":[{"key":"MAX_HP","value":8225},{"key":"EXTERNAL_DEFENCE","value":58}],"purpleAttr":[{"key":"MAX_HP","value":7402},{"key":"EXTERNAL_DEFENCE","value":53}],"versionKey":"115_NLXH_UP"},{"id":85,"key":"EQUIPMENT_CLOTH","name":"寒江甲","type":"cloth","goldenAttr":[{"key":"EXTERNAL_DEFENCE","value":16449},{"key":"MAX_HP","value":29}],"purpleAttr":[{"key":"MAX_HP","value":14804},{"key":"EXTERNAL_DEFENCE","value":27}],"versionKey":"115_NLXH_UP"},{"id":98,"key":"EQUIPMENT_WEAPON_FIST","name":"沧海动岳","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":97,"key":"EQUIPMENT_WEAPON_BIGBLADE","name":"沧海碎刃","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":96,"key":"EQUIPMENT_WEAPON_2BLADE","name":"沧海双鲤","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":95,"key":"EQUIPMENT_WEAPON_BLADE","name":"沧海断水","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":94,"key":"EQUIPMENT_WEAPON_DRUM","name":"沧海凌波","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":93,"key":"EQUIPMENT_WEAPON_ROPE","name":"沧海鸣镖","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":92,"key":"EQUIPMENT_WEAPON_UMBRELLA","name":"沧海云伞","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":91,"key":"EQUIPMENT_WEAPON_FAN","name":"沧海画扇","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":90,"key":"EQUIPMENT_WEAPON_SPEAR","name":"沧海羽林","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"},{"id":89,"key":"EQUIPMENT_WEAPON_SWORD","name":"沧海含光","type":"weapon","goldenAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":114},{"key":"MAX_EXTERNAL_ATTACK","value":265}],"purpleAttr":[{"key":"MIN_EXTERNAL_ATTACK","value":90},{"key":"MAX_EXTERNAL_ATTACK","value":209}],"versionKey":"115_NLXH_UP"}],"sets":[{"id":118,"key":"SET_WEAPON_FEISUN","shortName":"飞","type":0,"attr":[{"key":"INSIGHT_RATE","value":8}],"versionKey":"115_NLXH_UP"},{"id":120,"key":"SET_WEAPON_LIANXING","shortName":"星","type":0,"attr":[{"key":"MIN_EXTERNAL_ATTACK","value":140}],"versionKey":"115_NLXH_UP"},{"id":119,"key":"SET_WEAPON_YANGUI","shortName":"归","type":0,"attr":[{"key":"MIN_EXTERNAL_ATTACK","value":140}],"versionKey":"115_NLXH_UP"},{"id":117,"key":"SET_WEAPON_YUDOU","shortName":"斗","type":0,"attr":[{"key":"MAX_EXTERNAL_ATTACK","value":140}],"versionKey":"115_NLXH_UP"},{"id":124,"key":"SET_WEAPON_SHIYU","shortName":"雨","type":0,"attr":[{"key":"ACCURACY_RATE","value":14.3},{"key":"CRITICAL_DAMAGE","value":10}],"versionKey":"115_NLXH_UP"},{"id":125,"key":"SET_WEAPON_YANLIU","shortName":"烟","type":0,"attr":[{"key":"ACCURACY_RATE","value":14.3}],"versionKey":"115_NLXH_UP"},{"id":127,"key":"SET_BOW_JINGXIAN","shortName":"惊弦","type":1,"attr":[{"key":"CRITICAL_RATE","value":8}],"versionKey":"115_NLXH_UP"},{"id":128,"key":"SET_BOW_YINYU","shortName":"饮羽","type":1,"attr":[{"key":"ACCURACY_RATE","value":7.2}],"versionKey":"115_NLXH_UP"},{"id":126,"key":"SET_BOW_ZHUIYING","shortName":"追影","type":1,"attr":[{"key":"INSIGHT_RATE","value":4}],"versionKey":"115_NLXH_UP"},{"id":130,"key":"SET_WEAPON_QINGSHANG","shortName":"倾","type":0,"attr":[{"key":"MIN_EXTERNAL_ATTACK","value":140}],"versionKey":"115_NLXH_UP"},{"id":122,"key":"SET_WEAPON_HANTIAN","shortName":"撼","type":0,"attr":[{"key":"MIN_EXTERNAL_ATTACK","value":140}],"versionKey":"115_NLXH_UP"},{"id":123,"key":"SET_WEAPON_CAIYUN","shortName":"云","type":0,"attr":[{"key":"MIN_EXTERNAL_ATTACK","value":140}],"versionKey":"115_NLXH_UP"},{"id":121,"key":"SET_WEAPON_DUANYUE","shortName":"断","type":0,"attr":[{"key":"MIN_EXTERNAL_ATTACK","value":140},{"key":"COMMON_DAMAGE","value":5}],"versionKey":"115_NLXH_UP"},{"id":129,"key":"SET_WEAPON_HUANHUA","shortName":"花","type":0,"attr":[{"key":"CRITICAL_RATE","value":14}],"versionKey":"115_NLXH_UP"}],"minds":[{"id":332,"key":"XF_WMXF","attr":[{"key":"MAX_EXTERNAL_ATTACK","value":130.1},{"key":"DIRECT_INSIGHT_RATE","value":2.3}],"buildKey":"MINGJIN_HONG","versionKey":"115_NLXH_UP"},{"id":350,"key":"XF_QSG","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_HEAL_DAMAGE","value":2.5}],"buildKey":"QIANSI_LIN","versionKey":"115_NLXH_UP"},{"id":349,"key":"XF_XHBJ","attr":[{"key":"MIN_QIANSI_ATTACK","value":66.4},{"key":"CRITICAL_HEAL_DAMAGE","value":4}],"buildKey":"QIANSI_LIN","versionKey":"115_NLXH_UP"},{"id":355,"key":"XF_MHTC","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_DAMAGE","value":5.1}],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":354,"key":"XF_DJWS","attr":[{"key":"MIN_WUXIANG_ATTACK","value":22.1},{"key":"MAX_WUXIANG_ATTACK","value":44.3},{"key":"WUXIANG_PENETRATION","value":6}],"buildKey":null,"versionKey":"115_NLXH_UP"},{"id":353,"key":"XF_YBYX","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_DAMAGE","value":2.5}],"buildKey":"POZHU_ZUN","versionKey":"115_NLXH_UP"},{"id":352,"key":"XF_FXZY","attr":[{"key":"CRITICAL_RATE","value":13.5},{"key":"CRITICAL_DAMAGE","value":4}],"buildKey":"POZHU_ZUN","versionKey":"115_NLXH_UP"},{"id":351,"key":"XF_YZQQ","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":130.1},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"POZHU_ZUN","versionKey":"115_NLXH_UP"},{"id":348,"key":"XF_NZM","attr":[],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":347,"key":"XF_SSWC","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":43.4},{"key":"MAX_EXTERNAL_ATTACK","value":86.8},{"key":"EXTERNAL_DAMAGE","value":2.8}],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":346,"key":"XF_YSG","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":43.4},{"key":"MAX_EXTERNAL_ATTACK","value":86.8},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":345,"key":"XF_QYYH","attr":[{"key":"CRITICAL_RATE","value":15},{"key":"EXTERNAL_DAMAGE","value":2.8}],"buildKey":"POZHU_FENG","versionKey":"115_NLXH_UP"},{"id":344,"key":"XF_ZRG","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":117.1},{"key":"EXTERNAL_PENETRATION","value":5.1}],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":343,"key":"XF_DSZG","attr":[{"key":"ACCURACY_RATE","value":12},{"key":"DIRECT_CRITICAL_RATE","value":4.1}],"buildKey":"POZHU_FENG","versionKey":"115_NLXH_UP"},{"id":342,"key":"XF_XHG","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":130.1},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"QIANSI_YI","versionKey":"115_NLXH_UP"},{"id":341,"key":"XF_SZXM","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":117.1},{"key":"EXTERNAL_PENETRATION","value":5.1}],"buildKey":"POZHU_CHEN","versionKey":"115_NLXH_UP"},{"id":340,"key":"XF_DTG","attr":[{"key":"ACCURACY_RATE","value":12},{"key":"CRITICAL_DAMAGE","value":4}],"buildKey":"POZHU_CHEN","versionKey":"115_NLXH_UP"},{"id":339,"key":"XF_JLQX","attr":[{"key":"MAX_EXTERNAL_ATTACK","value":104.1},{"key":"CRITICAL_DAMAGE","value":3.5}],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":338,"key":"XF_XMNY","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":117.1},{"key":"EXTERNAL_PENETRATION","value":5.1}],"buildKey":"POZHU_FENG","versionKey":"115_NLXH_UP"},{"id":337,"key":"XF_WCJX","attr":[{"key":"CRITICAL_RATE","value":15},{"key":"CRITICAL_DAMAGE","value":4.4}],"buildKey":"POZHU_FENG","versionKey":"115_NLXH_UP"},{"id":336,"key":"XF_JQZH","attr":[{"key":"MAX_EXTERNAL_ATTACK","value":130.1},{"key":"DIRECT_INSIGHT_RATE","value":2.3}],"buildKey":"MINGJIN_YING","versionKey":"115_NLXH_UP"},{"id":335,"key":"XF_SHNN","attr":[{"key":"ACCURACY_RATE","value":12},{"key":"EXTERNAL_DAMAGE","value":2.5}],"buildKey":"COMMON","versionKey":"115_NLXH_UP"},{"id":334,"key":"XF_WMG","attr":[{"key":"INSIGHT_RATE","value":6.7},{"key":"INSIGHT_DAMAGE","value":5.2}],"buildKey":"MINGJIN_HONG","versionKey":"115_NLXH_UP"},{"id":333,"key":"XF_ZLXJ","attr":[{"key":"INSIGHT_RATE","value":6.7},{"key":"INSIGHT_DAMAGE","value":5.2}],"buildKey":"MINGJIN_YING","versionKey":"115_NLXH_UP"},{"id":331,"key":"XF_QSF","attr":[{"key":"MIN_MINGJIN_ATTACK","value":22.1},{"key":"MAX_MINGJIN_ATTACK","value":44.3},{"key":"MINGJIN_PENETRATION","value":6}],"buildKey":"MINGJIN_HONG","versionKey":"115_NLXH_UP"},{"id":330,"key":"XF_ZDZX","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_PENETRATION","value":5.1}],"buildKey":"QIANSI_YU","versionKey":"115_NLXH_UP"},{"id":329,"key":"XF_CLP","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_DAMAGE","value":2.5}],"buildKey":"QIANSI_YU","versionKey":"115_NLXH_UP"},{"id":328,"key":"XF_STBY","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":130.1},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"LIESHI_JUN","versionKey":"115_NLXH_UP"},{"id":327,"key":"XF_FYZS","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":130.1},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"POZHU_YUAN","versionKey":"115_NLXH_UP"},{"id":326,"key":"XF_GZBC","attr":[{"key":"CRITICAL_RATE","value":13.5},{"key":"CRITICAL_DAMAGE","value":4}],"buildKey":"LIESHI_JUN","versionKey":"115_NLXH_UP"},{"id":325,"key":"XF_SQZZ","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_DAMAGE","value":2.5}],"buildKey":"POZHU_YUAN","versionKey":"115_NLXH_UP"},{"id":324,"key":"XF_NSZ","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_PENETRATION","value":5.1}],"buildKey":"MINGJIN_YING","versionKey":"115_NLXH_UP"},{"id":323,"key":"XF_JCY","attr":[{"key":"CRITICAL_RATE","value":15},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"QIANSI_LIN","versionKey":"115_NLXH_UP"},{"id":322,"key":"XF_YJYW","attr":[{"key":"MAX_MINGJIN_ATTACK","value":66.4},{"key":"MINGJIN_DAMAGE","value":3}],"buildKey":"MINGJIN_YING","versionKey":"115_NLXH_UP"},{"id":321,"key":"XF_CHJ","attr":[{"key":"MIN_LIESHI_ATTACK","value":22.1},{"key":"MAX_LIESHI_ATTACK","value":44.3},{"key":"LIESHI_PENETRATION","value":6}],"buildKey":"LIESHI_JUN","versionKey":"115_NLXH_UP"},{"id":320,"key":"XF_KZDF","attr":[{"key":"MIN_LIESHI_ATTACK","value":22.1},{"key":"MAX_LIESHI_ATTACK","value":44.3},{"key":"LIESHI_PENETRATION","value":6}],"buildKey":"LIESHI_WEI","versionKey":"115_NLXH_UP"},{"id":319,"key":"XF_HSYL","attr":[{"key":"CRITICAL_RATE","value":15},{"key":"DIRECT_CRITICAL_RATE","value":4.6}],"buildKey":"QIANSI_YU","versionKey":"115_NLXH_UP"},{"id":318,"key":"XF_SHJY","attr":[{"key":"CRITICAL_RATE","value":15},{"key":"CRITICAL_DAMAGE","value":4.4}],"buildKey":"LIESHI_WEI","versionKey":"115_NLXH_UP"},{"id":317,"key":"XF_FZY","attr":[{"key":"CRITICAL_RATE","value":13.5},{"key":"CRITICAL_DAMAGE","value":4}],"buildKey":"QIANSI_YI","versionKey":"115_NLXH_UP"},{"id":316,"key":"XF_QTS","attr":[{"key":"CRITICAL_RATE","value":13.5},{"key":"CRITICAL_DAMAGE","value":4}],"buildKey":"POZHU_YUAN","versionKey":"115_NLXH_UP"},{"id":315,"key":"XF_XMP","attr":[{"key":"MIN_EXTERNAL_ATTACK","value":39},{"key":"MAX_EXTERNAL_ATTACK","value":78},{"key":"EXTERNAL_DAMAGE","value":2.5}],"buildKey":"QIANSI_YI","versionKey":"115_NLXH_UP"}],"attributes":[{"id":187,"key":"SPECIAL_DAMAGE","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":185,"key":"BENEFIT_RESISTANCE","value":1.3225,"remark":"","versionKey":"115_NLXH_UP"},{"id":181,"key":"MINGJIN_PENETRATION","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":167,"key":"EXTERNAL_PENETRATION","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":165,"key":"MAX_EXTERNAL_ATTACK","value":1808.8,"remark":"等级 263/506；天赋 105.6/105.6；清河 8/16；开封 16/24；河西 8/16；不见山 8/16；皇宫 4/8 + 13.2/13.2；青州 4/4 + 0/4；夹钟下 13.2/13.2；蕤宾上 13.2/26.4；突破 122/244；江南 24/36；杭州西 12/12；杭州全 13.2/26.4；装备部分见装备明细。","versionKey":"115_NLXH_UP"},{"id":166,"key":"MIN_EXTERNAL_ATTACK","value":997.4,"remark":"","versionKey":"115_NLXH_UP"},{"id":186,"key":"RAID_DAMAGE","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":184,"key":"FIXED_DAMAGE_RATE","value":50,"remark":"","versionKey":"115_NLXH_UP"},{"id":183,"key":"FIXED_DAMAGE","value":60,"remark":"","versionKey":"115_NLXH_UP"},{"id":182,"key":"POZHU_PENETRATION","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":180,"key":"QIANSI_PENETRATION","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":179,"key":"LIESHI_PENETRATION","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":178,"key":"MAX_HP","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":177,"key":"EXTERNAL_DEFENCE","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":176,"key":"LEVEL_RESISTANCE","value":2.8,"remark":"","versionKey":"115_NLXH_UP"},{"id":175,"key":"CRITICAL_RATE","value":28,"remark":"","versionKey":"115_NLXH_UP"},{"id":174,"key":"INSIGHT_RATE","value":14,"remark":"","versionKey":"115_NLXH_UP"},{"id":173,"key":"ACCURACY_RATE","value":113.4,"remark":"","versionKey":"115_NLXH_UP"},{"id":172,"key":"YU","value":283,"remark":"","versionKey":"115_NLXH_UP"},{"id":171,"key":"TI","value":283,"remark":"","versionKey":"115_NLXH_UP"},{"id":170,"key":"JIN","value":304,"remark":"","versionKey":"115_NLXH_UP"},{"id":169,"key":"SHI","value":304,"remark":"","versionKey":"115_NLXH_UP"},{"id":168,"key":"MIN","value":304,"remark":"","versionKey":"115_NLXH_UP"},{"id":164,"key":"WUXIANG_PENETRATION","value":0,"remark":"","versionKey":"115_NLXH_UP"},{"id":163,"key":"MAX_WUXIANG_ATTACK","value":92.4,"remark":"","versionKey":"115_NLXH_UP"},{"id":162,"key":"MIN_WUXIANG_ATTACK","value":79.2,"remark":"","versionKey":"115_NLXH_UP"},{"id":161,"key":"INSIGHT_DAMAGE","value":35,"remark":"","versionKey":"115_NLXH_UP"},{"id":160,"key":"CRITICAL_HEAL_DAMAGE","value":50,"remark":"","versionKey":"115_NLXH_UP"},{"id":159,"key":"CRITICAL_DAMAGE","value":50,"remark":"","versionKey":"115_NLXH_UP"}],"tunings":[{"id":258,"key":"MIN_EXTERNAL_ATTACK","weight":99,"baseValue":131.22,"maxValue":139.6,"firstEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":257,"key":"MAX_EXTERNAL_ATTACK","weight":99,"baseValue":131.22,"maxValue":139.6,"firstEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":261,"key":"JIN","weight":98,"baseValue":83.1,"maxValue":88.4,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_SHOES"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":260,"key":"SHI","weight":98,"baseValue":83.1,"maxValue":88.4,"firstEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":259,"key":"MIN","weight":98,"baseValue":83.1,"maxValue":88.4,"firstEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":266,"key":"CRITICAL_RATE","weight":97,"baseValue":15.23,"maxValue":16.2,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":265,"key":"INSIGHT_RATE","weight":97,"baseValue":7.61,"maxValue":8.1,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":264,"key":"ACCURACY_RATE","weight":97,"baseValue":13.54,"maxValue":14.4,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":277,"key":"WUXUE_DAMAGE","weight":96,"baseValue":5.26,"maxValue":5.6,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":289,"key":"FIST_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST"],"versionKey":"115_NLXH_UP"},{"id":288,"key":"BIGBLADE_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_BIGBLADE"],"versionKey":"115_NLXH_UP"},{"id":287,"key":"2BLADE_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_2BLADE"],"versionKey":"115_NLXH_UP"},{"id":286,"key":"BLADE_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_BLADE"],"versionKey":"115_NLXH_UP"},{"id":285,"key":"DRUM_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_DRUM"],"versionKey":"115_NLXH_UP"},{"id":284,"key":"ROPE_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_ROPE"],"versionKey":"115_NLXH_UP"},{"id":283,"key":"UMBRELLA_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_UMBRELLA"],"versionKey":"115_NLXH_UP"},{"id":282,"key":"FAN_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FAN"],"versionKey":"115_NLXH_UP"},{"id":281,"key":"SPEAR_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_SPEAR"],"versionKey":"115_NLXH_UP"},{"id":280,"key":"SWORD_DAMAGE","weight":96,"baseValue":10.62,"maxValue":11.3,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_SWORD"],"versionKey":"115_NLXH_UP"},{"id":279,"key":"BOSS_DAMAGE","weight":96,"baseValue":5.55,"maxValue":5.9,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_SHOES","EQUIPMENT_HAND"],"versionKey":"115_NLXH_UP"},{"id":276,"key":"MAX_POZHU_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":275,"key":"MIN_POZHU_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":274,"key":"MAX_QIANSI_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":273,"key":"MIN_QIANSI_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":272,"key":"MAX_LIESHI_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":271,"key":"MIN_LIESHI_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":270,"key":"MAX_MINGJIN_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":269,"key":"MIN_MINGJIN_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":256,"key":"MAX_WUXIANG_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD"],"versionKey":"115_NLXH_UP"},{"id":255,"key":"MIN_WUXIANG_ATTACK","weight":95,"baseValue":74.45,"maxValue":79.2,"firstEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD"],"versionKey":"115_NLXH_UP"},{"id":290,"key":"ALLQS_DAMAGE","weight":94,"baseValue":16.64,"maxValue":17.7,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":278,"key":"PLAYER_DAMAGE","weight":94,"baseValue":4.79,"maxValue":5.1,"firstEquipmentKeys":[],"secondaryEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_SHOES"],"versionKey":"115_NLXH_UP"},{"id":292,"key":"AOEQS_DAMAGE","weight":0,"baseValue":0,"maxValue":0,"firstEquipmentKeys":[],"secondaryEquipmentKeys":[],"versionKey":"115_NLXH_UP"},{"id":291,"key":"SINGLEQS_DAMAGE","weight":0,"baseValue":0,"maxValue":0,"firstEquipmentKeys":[],"secondaryEquipmentKeys":[],"versionKey":"115_NLXH_UP"},{"id":268,"key":"MAX_HP","weight":0,"baseValue":0,"maxValue":0,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":267,"key":"EXTERNAL_DEFENCE","weight":0,"baseValue":0,"maxValue":0,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":263,"key":"YU","weight":0,"baseValue":72.19,"maxValue":76.8,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":262,"key":"TI","weight":0,"baseValue":72.19,"maxValue":76.8,"firstEquipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"secondaryEquipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"}],"pitches":[{"id":103,"key":"EXTERNAL_PENETRATION","weight":99,"maxValue":19.4,"equipmentKeys":["EQUIPMENT_WEAPON_FIST","EQUIPMENT_WEAPON_BIGBLADE","EQUIPMENT_WEAPON_2BLADE","EQUIPMENT_WEAPON_BLADE","EQUIPMENT_WEAPON_DRUM","EQUIPMENT_WEAPON_ROPE","EQUIPMENT_WEAPON_UMBRELLA","EQUIPMENT_WEAPON_FAN","EQUIPMENT_WEAPON_SPEAR","EQUIPMENT_WEAPON_SWORD","EQUIPMENT_RING","EQUIPMENT_PENDANT"],"versionKey":"115_NLXH_UP"},{"id":116,"key":"XSDS_NSJNZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_CLOTH","EQUIPMENT_SHOES","EQUIPMENT_HEAD","EQUIPMENT_HAND"],"versionKey":"115_NLXH_UP"},{"id":115,"key":"ZXDF_QZJPSJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_CLOTH","EQUIPMENT_SHOES","EQUIPMENT_HEAD","EQUIPMENT_HAND"],"versionKey":"115_NLXH_UP"},{"id":114,"key":"JCCS_GPDDZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HAND","EQUIPMENT_HEAD","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":113,"key":"MCYD_ZLJZL","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":112,"key":"SFPZ_XLJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":111,"key":"JFDF_XLJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":110,"key":"TZCX_XLJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":109,"key":"ZMYC_WXJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":108,"key":"SZYC_SSZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":107,"key":"WDNC_TSJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":106,"key":"JCCS_TSJZS","weight":0,"maxValue":10.6,"equipmentKeys":[],"versionKey":"115_NLXH_UP"},{"id":105,"key":"JJJJ_LXZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":104,"key":"WMJF_XLJZS","weight":0,"maxValue":10.6,"equipmentKeys":["EQUIPMENT_HEAD","EQUIPMENT_HAND","EQUIPMENT_SHOES","EQUIPMENT_CLOTH"],"versionKey":"115_NLXH_UP"},{"id":102,"key":"WUXIANG_PENETRATION","weight":0,"maxValue":23,"equipmentKeys":[],"versionKey":"115_NLXH_UP"}]}</script>
+  <script>
+(function () {
+  'use strict';
+
+  var D = JSON.parse(document.getElementById('panel-data').textContent);
+  var K = D.keyMap;
+
+  var BUILDS = ['LIESHI_WEI', 'LIESHI_JUN', 'POZHU_YUAN', 'MINGJIN_HONG', 'MINGJIN_YING', 'POZHU_CHEN', 'QIANSI_LIN', 'POZHU_FENG', 'POZHU_ZUN', 'QIANSI_YU', 'QIANSI_YI'];
+
+  var PARTS = [
+    { key: 'weaponOne', label: '武器1' },
+    { key: 'weaponTwo', label: '武器2' },
+    { key: 'ring', label: '环' },
+    { key: 'pendant', label: '佩' },
+    { key: 'head', label: '头' },
+    { key: 'cloth', label: '衣' },
+    { key: 'shoe', label: '裤' },
+    { key: 'hand', label: '手' }
+  ];
+
+  var ROWS = [
+    { key: 'MAX_EXTERNAL_ATTACK', label: '最大外功', group: 'base' },
+    { key: 'MIN_EXTERNAL_ATTACK', label: '最小外功', group: 'base' },
+    { key: 'JIN', label: '劲', group: 'base' },
+    { key: 'SHI', label: '势', group: 'base' },
+    { key: 'MIN', label: '敏', group: 'base' },
+    { key: 'ACCURACY_RATE', label: '精准率', group: 'base' },
+    { key: 'CRITICAL_RATE', label: '会心率', group: 'base' },
+    { key: 'INSIGHT_RATE', label: '会意率', group: 'base' },
+    { key: 'SPIRIT', label: '神力', group: 'spirit' },
+    { key: 'MAX_WUXIANG_ATTACK', label: '大无相', group: 'element' },
+    { key: 'MIN_WUXIANG_ATTACK', label: '小无相', group: 'element' },
+    { key: 'MAX_POZHU_ATTACK', label: '大破竹', group: 'element' },
+    { key: 'MIN_POZHU_ATTACK', label: '小破竹', group: 'element' },
+    { key: 'MAX_MINGJIN_ATTACK', label: '大鸣金', group: 'element' },
+    { key: 'MIN_MINGJIN_ATTACK', label: '小鸣金', group: 'element' },
+    { key: 'MAX_QIANSI_ATTACK', label: '大牵丝', group: 'element' },
+    { key: 'MIN_QIANSI_ATTACK', label: '小牵丝', group: 'element' },
+    { key: 'MAX_LIESHI_ATTACK', label: '大裂石', group: 'element' },
+    { key: 'MIN_LIESHI_ATTACK', label: '小裂石', group: 'element' }
+  ];
+
+  var EQ_SLOT = {
+    ring: 'EQUIPMENT_RING', pendant: 'EQUIPMENT_PENDANT', head: 'EQUIPMENT_HEAD',
+    cloth: 'EQUIPMENT_CLOTH', shoe: 'EQUIPMENT_SHOES', hand: 'EQUIPMENT_HAND'
+  };
+
+  var SPIRIT_SLOT_KEY = {
+    ring: 'WUXUE_DAMAGE', pendant: 'WUXUE_DAMAGE',
+    head: 'ALLQS_DAMAGE', cloth: 'ALLQS_DAMAGE',
+    shoe: 'BOSS_DAMAGE', hand: 'BOSS_DAMAGE'
+  };
+
+  var DAMAGE_BY_EQ = {
+    EQUIPMENT_WEAPON_2BLADE: '2BLADE_DAMAGE',
+    EQUIPMENT_WEAPON_ROPE: 'ROPE_DAMAGE',
+    EQUIPMENT_WEAPON_SWORD: 'SWORD_DAMAGE',
+    EQUIPMENT_WEAPON_SPEAR: 'SPEAR_DAMAGE',
+    EQUIPMENT_WEAPON_UMBRELLA: 'UMBRELLA_DAMAGE',
+    EQUIPMENT_WEAPON_FAN: 'FAN_DAMAGE',
+    EQUIPMENT_WEAPON_BIGBLADE: 'BIGBLADE_DAMAGE',
+    EQUIPMENT_WEAPON_BLADE: 'BLADE_DAMAGE',
+    EQUIPMENT_WEAPON_FIST: 'FIST_DAMAGE',
+    EQUIPMENT_WEAPON_DRUM: 'DRUM_DAMAGE'
+  };
+
+  var WEAPON_LABEL = {
+    EQUIPMENT_WEAPON_BIGBLADE: '陌刀',
+    EQUIPMENT_WEAPON_2BLADE: '双刀',
+    EQUIPMENT_WEAPON_SWORD: '剑',
+    EQUIPMENT_WEAPON_SPEAR: '枪',
+    EQUIPMENT_WEAPON_FAN: '扇',
+    EQUIPMENT_WEAPON_UMBRELLA: '伞',
+    EQUIPMENT_WEAPON_ROPE: '绳镖',
+    EQUIPMENT_WEAPON_DRUM: '鼓',
+    EQUIPMENT_WEAPON_BLADE: '横刀',
+    EQUIPMENT_WEAPON_FIST: '拳甲'
+  };
+
+  var DEFAULT_MINDS = {
+    LIESHI_JUN: ['XF_STBY', 'XF_YSG', 'XF_GZBC', 'XF_CHJ'],
+    LIESHI_WEI: ['XF_SHJY', 'XF_YSG', 'XF_CHJ', 'XF_KZDF'],
+    QIANSI_YU: ['XF_HSYL', 'XF_YSG', 'XF_ZDZX', 'XF_CLP'],
+    QIANSI_LIN: ['XF_JCY', 'XF_YSG', 'XF_QSG', 'XF_XHBJ'],
+    QIANSI_YI: ['XF_XHG', 'XF_YSG', 'XF_XMP', 'XF_FZY'],
+    POZHU_CHEN: ['XF_QYYH', 'XF_YSG', 'XF_DTG', 'XF_SZXM'],
+    POZHU_YUAN: ['XF_FYZS', 'XF_YSG', 'XF_SQZZ', 'XF_QTS'],
+    POZHU_FENG: ['XF_WCJX', 'XF_YSG', 'XF_DSZG', 'XF_XMNY'],
+    POZHU_ZUN: ['XF_YZQQ', 'XF_YSG', 'XF_YBYX', 'XF_FXZY'],
+    MINGJIN_HONG: ['XF_WMXF', 'XF_WMG', 'XF_QSF', 'XF_NSZ'],
+    MINGJIN_YING: ['XF_JQZH', 'XF_YSG', 'XF_NSZ', 'XF_ZLXJ']
+  };
+
+  var DEFAULT_WEAPON_SET = {
+    LIESHI_JUN: 'SET_WEAPON_DUANYUE',
+    LIESHI_WEI: 'SET_WEAPON_SHIYU',
+    QIANSI_YI: 'SET_WEAPON_CAIYUN',
+    QIANSI_LIN: 'SET_WEAPON_SHIYU',
+    QIANSI_YU: 'SET_WEAPON_YANLIU',
+    POZHU_CHEN: 'SET_WEAPON_LIANXING',
+    POZHU_FENG: 'SET_WEAPON_YANGUI',
+    POZHU_ZUN: 'SET_WEAPON_QINGSHANG',
+    POZHU_YUAN: 'SET_WEAPON_HANTIAN',
+    MINGJIN_HONG: 'SET_WEAPON_YUDOU',
+    MINGJIN_YING: 'SET_WEAPON_FEISUN'
+  };
+
+  var DEFAULT_BOW_SET = 'SET_BOW_YINYU';
+
+  var BENEFIT_KEYS = new Set([
+    'WEAPON_DAMAGE', 'SWORD_DAMAGE', 'SPEAR_DAMAGE', 'FAN_DAMAGE', 'UMBRELLA_DAMAGE',
+    'ROPE_DAMAGE', 'DRUM_DAMAGE', 'BLADE_DAMAGE', '2BLADE_DAMAGE', 'BIGBLADE_DAMAGE',
+    'FIST_DAMAGE', 'WUXUE_DAMAGE', 'BOSS_DAMAGE', 'PLAYER_DAMAGE', 'ALLQS_DAMAGE',
+    'SINGLEQS_DAMAGE', 'AOEQS_DAMAGE', 'EXTERNAL_PENETRATION', 'WUXIANG_PENETRATION',
+    'WMJF_XLJZS', 'JJJJ_LXZS', 'JCCS_TSJZS', 'JCCS_GPDDZS', 'WDNC_TSJZS', 'SZYC_SSZS',
+    'ZMYC_WXJZS', 'TZCX_XLJZS', 'JFDF_XLJZS', 'ZXDF_QZJPSJZS', 'SFPZ_XLJZS',
+    'MCYD_ZLJZL', 'XSDS_NSJNZS'
+  ]);
+
+  var HIDDEN = new Set([
+    'MIN_EXTERNAL_ATTACK', 'MIN_MINGJIN_ATTACK', 'MIN_LIESHI_ATTACK', 'MIN_QIANSI_ATTACK',
+    'MIN_POZHU_ATTACK', 'MIN_WUXIANG_ATTACK', 'LEVEL_RESISTANCE', 'BENEFIT_RESISTANCE',
+    'MAX_HP', 'EXTERNAL_DEFENCE', 'CRITICAL_DAMAGE', 'INSIGHT_DAMAGE', 'CRITICAL_HEAL_DAMAGE',
+    'JIN', 'SHI', 'MIN', 'TI', 'YU', 'FIXED_DAMAGE', 'FIXED_DAMAGE_RATE', 'COMMON_DAMAGE'
+  ]);
+
+  var WEIGHTS = {
+    MAX_EXTERNAL_ATTACK: 100, EXTERNAL_PENETRATION: 100,
+    MAX_MINGJIN_ATTACK: 99, MINGJIN_PENETRATION: 99,
+    MAX_LIESHI_ATTACK: 98, LIESHI_PENETRATION: 98,
+    MAX_QIANSI_ATTACK: 97, QIANSI_PENETRATION: 97,
+    MAX_POZHU_ATTACK: 96, POZHU_PENETRATION: 96,
+    MAX_WUXIANG_ATTACK: 95, WUXIANG_PENETRATION: 95,
+    ACCURACY_RATE: 94, CRITICAL_RATE: 93, DIRECT_CRITICAL_RATE: 93,
+    INSIGHT_RATE: 92, DIRECT_INSIGHT_RATE: 92
+  };
+
+  var SPECIAL = {
+    MAX_EXTERNAL_ATTACK: { minKey: 'MIN_EXTERNAL_ATTACK', label: '外功攻击' },
+    MAX_MINGJIN_ATTACK: { minKey: 'MIN_MINGJIN_ATTACK', label: '鸣金攻击' },
+    MAX_LIESHI_ATTACK: { minKey: 'MIN_LIESHI_ATTACK', label: '裂石攻击' },
+    MAX_QIANSI_ATTACK: { minKey: 'MIN_QIANSI_ATTACK', label: '牵丝攻击' },
+    MAX_POZHU_ATTACK: { minKey: 'MIN_POZHU_ATTACK', label: '破竹攻击' },
+    MAX_WUXIANG_ATTACK: { minKey: 'MIN_WUXIANG_ATTACK', label: '无相攻击' }
+  };
+
+  var RATE_KEYS = { ACCURACY_RATE: 100, CRITICAL_RATE: 80, INSIGHT_RATE: 40 };
+
+  /* ---------- 基础数值工具 ---------- */
+
+  function num(v) {
+    var n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function roundTo(v, d) {
+    d = d == null ? 0 : d;
+    if (!Number.isFinite(v)) return 0;
+    var p = Math.pow(10, d);
+    var x = v * p;
+    var r = x < 0 ? -Math.round(-x + 1e-9) : Math.round(x + 1e-9);
+    return r / p;
+  }
+
+  function fmtRaw(v) {
+    return roundTo(v, 4).toFixed(4).replace(/(?:\.0+|(\.\d*?[1-9])0+)$/, '$1');
+  }
+
+  function disp(v) {
+    var t = roundTo(v, 2);
+    return Number.isInteger(t) ? String(t) : t.toFixed(2);
+  }
+
+  function kFormat(s) {
+    return String(s).replace(/-?\d+\.\d+/g, function (m) { return disp(Number(m)); });
+  }
+
+  function keyName(k, fallback) {
+    var m = K[k];
+    return (m && m.name) || fallback || k;
+  }
+
+  function isPercent(k) {
+    return !!(K[k] && K[k].isPercent);
+  }
+
+  function isRateKey(k) {
+    return Object.prototype.hasOwnProperty.call(RATE_KEYS, k);
+  }
+
+  function stringifyAttr(key, value) {
+    var s = fmtRaw(value);
+    return isPercent(key) ? s + '%' : s;
+  }
+
+  function accConvert(v, lr) {
+    var base = 65;
+    if (!Number.isFinite(lr) || lr <= 0) return v;
+    return base + Math.max(v - base, 0) / lr;
+  }
+
+  function computed(key, value, map) {
+    var v = roundTo(value, 4);
+    if (!isRateKey(key)) return v;
+    var lr = num(map.LEVEL_RESISTANCE);
+    if (key === 'ACCURACY_RATE') return Number(accConvert(v, lr).toFixed(4));
+    return Number((lr > 0 ? v / lr : v).toFixed(4));
+  }
+
+  function combineCritical(acc, crit, directCrit, insight, directInsight) {
+    var a = Math.min(Math.max(acc, 0), 100);
+    var o = roundTo(Math.min(Math.max(crit, 0), 80) + directCrit, 4);
+    var r = roundTo(Math.min(Math.max(insight, 0), 40) + directInsight, 4);
+    var l = (r + o > 100) ? a * Math.max(0, 100 - r) / 100 : a * o / 100;
+    return l;
+  }
+
+  /* ---------- 元数据索引 ---------- */
+
+  var EQ_LIST = D.equipments.map(function (e) {
+    return {
+      key: e.key,
+      name: e.name,
+      type: e.type,
+      goldenAttr: e.goldenAttr || [],
+      firstTuningKeys: D.tunings.filter(function (t) {
+        return (t.firstEquipmentKeys || []).indexOf(e.key) >= 0;
+      }).map(function (t) { return t.key; }),
+      secondaryTuningKeys: D.tunings.filter(function (t) {
+        return (t.secondaryEquipmentKeys || []).indexOf(e.key) >= 0;
+      }).map(function (t) { return t.key; }),
+      pitchKeys: D.pitches.filter(function (p) {
+        return (p.equipmentKeys || []).indexOf(e.key) >= 0;
+      }).map(function (p) { return p.key; })
+    };
+  });
+
+  var EQ_BY_KEY = {};
+  EQ_LIST.forEach(function (e) { EQ_BY_KEY[e.key] = e; });
+
+  var TUNING_BY_KEY = {};
+  D.tunings.forEach(function (t) { TUNING_BY_KEY[t.key] = t; });
+
+  var PITCH_BY_KEY = {};
+  D.pitches.forEach(function (p) { PITCH_BY_KEY[p.key] = p; });
+
+  var MIND_BY_KEY = {};
+  D.minds.forEach(function (m) { MIND_BY_KEY[m.key] = m; });
+
+  var SET_BY_KEY = {};
+  D.sets.forEach(function (s) { SET_BY_KEY[s.key] = s; });
+
+  var ARSENAL_BY_KEY = {};
+  D.arsenals.forEach(function (a) { ARSENAL_BY_KEY[a.key] = a; });
+
+  function unitMeta(key) {
+    var t = TUNING_BY_KEY[key];
+    if (t) {
+      var a = num(t.baseValue != null ? t.baseValue : t.maxValue);
+      return { chengyinValue: a, maxValue: num(t.maxValue != null ? t.maxValue : a) };
+    }
+    var p = PITCH_BY_KEY[key];
+    if (p) {
+      var m = num(p.maxValue);
+      return { chengyinValue: m, maxValue: m };
+    }
+    return null;
+  }
+
+  function martialsByBuild(build) {
+    return D.martials.filter(function (m) { return m.buildKey === build; });
+  }
+
+  function slotEquipment(build) {
+    var ms = martialsByBuild(build).slice(0, 2);
+    return {
+      weaponOne: ms[0] ? (ms[0].equipmentKey || null) : null,
+      weaponTwo: ms[1] ? (ms[1].equipmentKey || null) : null,
+      ring: EQ_SLOT.ring,
+      pendant: EQ_SLOT.pendant,
+      head: EQ_SLOT.head,
+      cloth: EQ_SLOT.cloth,
+      shoe: EQ_SLOT.shoe,
+      hand: EQ_SLOT.hand
+    };
+  }
+
+  function resolveKey(rowKey, partKey, build) {
+    if (rowKey !== 'SPIRIT') return rowKey;
+    if (partKey === 'weaponOne' || partKey === 'weaponTwo') {
+      var eq = slotEquipment(build)[partKey];
+      return eq ? (DAMAGE_BY_EQ[eq] || null) : null;
+    }
+    return SPIRIT_SLOT_KEY[partKey] || null;
+  }
+
+  function maxCountOf(rowKey, partKey, build) {
+    var eq = slotEquipment(build)[partKey];
+    var key = resolveKey(rowKey, partKey, build);
+    if (!eq || !key) return 0;
+    var item = EQ_BY_KEY[eq];
+    if (!item) return 0;
+    var all = item.firstTuningKeys.concat(item.secondaryTuningKeys, item.pitchKeys);
+    var c = 0;
+    for (var i = 0; i < all.length; i++) if (all[i] === key) c++;
+    return c;
+  }
+
+  /* ---------- 词条汇总 ---------- */
+
+  function mergeEntries(entries, base) {
+    var out = {};
+    if (base) {
+      Object.keys(base).forEach(function (k) { out[k] = num(base[k]); });
+    }
+    (entries || []).forEach(function (e) {
+      if (!e || !e.key) return;
+      out[e.key] = num(out[e.key]) + num(e.value);
+    });
+    return out;
+  }
+
+  function rowIndexOf(key) {
+    for (var i = 0; i < ROWS.length; i++) if (ROWS[i].key === key) return i;
+    return 0;
+  }
+
+  function affixSnapshot(build, affixCounts) {
+    var cells = [];
+    var entries = [];
+    var agg = {};
+    var aggOrder = [];
+    var colCounts = {};
+    var total = 0;
+
+    PARTS.forEach(function (p) { colCounts[p.key] = 0; });
+
+    ROWS.forEach(function (row) {
+      PARTS.forEach(function (part) {
+        var cellKey = row.key + '::' + part.key;
+        var key = resolveKey(row.key, part.key, build);
+        var max = maxCountOf(row.key, part.key, build);
+        var count = Math.min(Math.max(0, Math.floor(num(affixCounts[cellKey]))), max);
+        var meta = key ? unitMeta(key) : null;
+        var unit = meta ? meta.chengyinValue : 0;
+
+        cells.push({
+          cellKey: cellKey,
+          rowKey: row.key,
+          partKey: part.key,
+          key: key,
+          count: count,
+          max: max,
+          unit: unit,
+          disabled: max <= 0 || !meta
+        });
+
+        if (count <= 0 || !key || !meta) return;
+        var value = count * unit;
+        entries.push({ key: key, value: value });
+        colCounts[part.key] += count;
+        total += count;
+
+        if (!agg[key]) {
+          agg[key] = { key: key, label: keyName(key), count: 0, unitValue: unit, totalValue: 0 };
+          aggOrder.push(key);
+        }
+        agg[key].count += count;
+        agg[key].totalValue += value;
+      });
+    });
+
+    var summaryRows = aggOrder.map(function (k) { return agg[k]; });
+    summaryRows.sort(function (a, b) {
+      if (a.count !== b.count) return b.count - a.count;
+      return rowIndexOf(a.key) - rowIndexOf(b.key);
+    });
+
+    return {
+      cells: cells,
+      entries: entries,
+      summaryRows: summaryRows,
+      columnCounts: colCounts,
+      totalCount: total
+    };
+  }
+
+  function applyBenefit(source, equipmentSource) {
+    var out = {};
+    var keys = {};
+    Object.keys(source || {}).forEach(function (k) { keys[k] = true; });
+    Object.keys(equipmentSource || {}).forEach(function (k) { keys[k] = true; });
+    Object.keys(keys).forEach(function (k) {
+      var totalRaw = num(source[k]);
+      var equipRaw = num(equipmentSource[k]);
+      var br = num(source.BENEFIT_RESISTANCE);
+      if (!BENEFIT_KEYS.has(k) || br <= 0 || equipRaw === 0) {
+        out[k] = totalRaw;
+      } else {
+        var nonEquip = totalRaw - equipRaw;
+        out[k] = roundTo(nonEquip + equipRaw / br, 8);
+      }
+    });
+    return out;
+  }
+
+  function applyConversions(map) {
+    var out = {};
+    Object.keys(map || {}).forEach(function (k) { out[k] = map[k]; });
+    var minV = num(map.MIN);
+    var shiV = num(map.SHI);
+    var jinV = num(map.JIN);
+    var derived = [
+      { key: 'MIN_EXTERNAL_ATTACK', value: minV * 0.9 + jinV * 0.22 },
+      { key: 'MAX_EXTERNAL_ATTACK', value: shiV * 0.9 + jinV * 1.36 },
+      { key: 'CRITICAL_RATE', value: minV * 0.076 },
+      { key: 'INSIGHT_RATE', value: shiV * 0.038 }
+    ];
+    derived.forEach(function (d) {
+      if (d.value !== 0) out[d.key] = num(out[d.key]) + d.value;
+    });
+    return out;
+  }
+
+  /* ---------- 汇总属性行 ---------- */
+
+  function benefitDetail(key, totalRaw, equipRaw, sourceValues) {
+    var br = num(sourceValues.BENEFIT_RESISTANCE);
+    if (!BENEFIT_KEYS.has(key) || br <= 0 || equipRaw === 0) {
+      return {
+        totalRawValue: totalRaw,
+        effectiveTotalValue: totalRaw,
+        equipmentRawValue: equipRaw,
+        nonEquipmentRawValue: totalRaw - equipRaw,
+        benefitResistance: br,
+        enabled: false
+      };
+    }
+    var nonEquip = totalRaw - equipRaw;
+    return {
+      totalRawValue: totalRaw,
+      effectiveTotalValue: roundTo(nonEquip + equipRaw / br, 8),
+      equipmentRawValue: equipRaw,
+      nonEquipmentRawValue: nonEquip,
+      benefitResistance: br,
+      enabled: true
+    };
+  }
+
+  function rangeText(a, b) {
+    if (a > b) return fmtRaw(a) + '↑';
+    if (a === b) return fmtRaw(a);
+    return fmtRaw(a) + '-' + fmtRaw(b);
+  }
+
+  function buildRows(build, sourceValues, equipmentSourceValues, combined) {
+    var acc = {};
+    var order = [];
+
+    function add(key, value) {
+      if (!Object.prototype.hasOwnProperty.call(acc, key)) {
+        order.push(key);
+        acc[key] = 0;
+      }
+      acc[key] = num(acc[key]) + num(value);
+    }
+
+    Object.keys(sourceValues).forEach(function (k) { add(k, sourceValues[k]); });
+
+    var minV = num(sourceValues.MIN);
+    var shiV = num(sourceValues.SHI);
+    var jinV = num(sourceValues.JIN);
+    if (minV * 0.9 + jinV * 0.22 !== 0) add('MIN_EXTERNAL_ATTACK', minV * 0.9 + jinV * 0.22);
+    if (shiV * 0.9 + jinV * 1.36 !== 0) add('MAX_EXTERNAL_ATTACK', shiV * 0.9 + jinV * 1.36);
+    if (minV * 0.076 !== 0) add('CRITICAL_RATE', minV * 0.076);
+    if (shiV * 0.038 !== 0) add('INSIGHT_RATE', shiV * 0.038);
+
+    Object.keys(SPECIAL).forEach(function (k) {
+      if (order.indexOf(k) >= 0) return;
+      var spec = SPECIAL[k];
+      if (num(sourceValues[spec.minKey]) !== 0) order.push(k);
+    });
+
+    var rows = [];
+
+    order.forEach(function (k) {
+      if (HIDDEN.has(k)) return;
+      var rawValue = roundTo(acc[k] || 0, 2);
+      var spec = SPECIAL[k];
+
+      if (spec) {
+        var minValue = num(acc[spec.minKey]);
+        if (rawValue === 0 && minValue === 0) return;
+        var primary = (k === 'MAX_WUXIANG_ATTACK')
+          ? fmtRaw(minValue) + '-' + fmtRaw(rawValue)
+          : rangeText(minValue, rawValue);
+        rows.push({
+          key: k,
+          label: spec.label,
+          sortValue: Math.max(rawValue, minValue),
+          primaryValue: primary,
+          secondaryValue: '',
+          valueTone: ''
+        });
+        return;
+      }
+
+      if (rawValue === 0) return;
+
+      if (!isRateKey(k)) {
+        rows.push({
+          key: k,
+          label: keyName(k),
+          sortValue: rawValue,
+          primaryValue: stringifyAttr(k, rawValue),
+          secondaryValue: '',
+          valueTone: ''
+        });
+        return;
+      }
+
+      var c = computed(k, rawValue, acc);
+      rows.push({
+        key: k,
+        label: keyName(k),
+        sortValue: rawValue,
+        primaryValue: fmtRaw(rawValue) + '%',
+        secondaryValue: '(' + c.toFixed(2) + '%)',
+        valueTone: ''
+      });
+    });
+
+    rows = rows.map(function (row, index) {
+      var r = {
+        key: row.key,
+        label: row.label,
+        sortValue: row.sortValue,
+        primaryValue: kFormat(row.primaryValue),
+        secondaryValue: row.secondaryValue ? kFormat(row.secondaryValue) : '',
+        valueTone: row.valueTone || '',
+        _index: index,
+        _weight: num(WEIGHTS[row.key])
+      };
+      return r;
+    });
+
+    rows.sort(function (a, b) {
+      if (a._weight !== b._weight) return b._weight - a._weight;
+      return a._index - b._index;
+    });
+
+    rows = rows.map(function (row) {
+      var out = { key: row.key, label: row.label, sortValue: row.sortValue, primaryValue: row.primaryValue, secondaryValue: row.secondaryValue, valueTone: row.valueTone };
+
+      if (isRateKey(out.key)) {
+        var threshold = RATE_KEYS[out.key];
+        var rawCombined = num(combined[out.key]);
+        var real = computed(out.key, rawCombined, combined);
+        var capped = Math.min(Math.max(real, 0), threshold);
+        var overflow = Math.max(real - capped, 0);
+        out.primaryValue = disp(rawCombined) + '%';
+        out.secondaryValue = '(' + disp(capped) + '%' + (overflow > 0 ? '，溢出 ' + disp(overflow) + '%' : '') + ')';
+      } else if (BENEFIT_KEYS.has(out.key)) {
+        var raw = num(sourceValues[out.key]);
+        var detail = benefitDetail(out.key, raw, num(equipmentSourceValues[out.key]), sourceValues);
+        if (detail.enabled) {
+          out.primaryValue = stringifyAttr(out.key, raw);
+          out.secondaryValue = '(' + (isPercent(out.key) ? detail.effectiveTotalValue.toFixed(2) + '%' : detail.effectiveTotalValue.toFixed(2)) + ')';
+        }
+      }
+      return out;
+    });
+
+    if (build === 'LIESHI_JUN') {
+      var at = -1;
+      for (var i = 0; i < rows.length; i++) if (rows[i].key === 'CRITICAL_RATE') { at = i; break; }
+      var effRow = effectiveCriticalRow(combined);
+      if (at >= 0) rows.splice(at + 1, 0, effRow);
+      else rows.push(effRow);
+    }
+
+    return rows;
+  }
+
+  function effectiveCriticalRow(combined) {
+    var acc = computed('ACCURACY_RATE', num(combined.ACCURACY_RATE), combined);
+    var crit = computed('CRITICAL_RATE', num(combined.CRITICAL_RATE), combined);
+    var insight = computed('INSIGHT_RATE', num(combined.INSIGHT_RATE), combined);
+    var directCrit = num(combined.DIRECT_CRITICAL_RATE);
+    var directInsight = num(combined.DIRECT_INSIGHT_RATE);
+    var v = roundTo(combineCritical(acc, crit, directCrit, insight, directInsight), 2);
+    return {
+      key: 'LIESHI_JUN_EFFECTIVE_CRITICAL_RATE',
+      label: '生效会心',
+      sortValue: v,
+      primaryValue: disp(v) + '%',
+      secondaryValue: '',
+      valueTone: v < 75 ? 'danger' : ''
+    };
+  }
+
+  /* ---------- 整体计算 ---------- */
+
+  function computeAll(build, workspace) {
+    var martials = martialsByBuild(build).slice(0, 2);
+    var minds = workspace.mindSlots.map(function (k) { return k ? MIND_BY_KEY[k] : null; }).filter(Boolean);
+    var affix = affixSnapshot(build, workspace.affixCounts);
+
+    var equipEntries = [];
+    Object.keys(slotEquipment(build)).forEach(function (slot) {
+      var eq = slotEquipment(build)[slot];
+      if (!eq || !EQ_BY_KEY[eq]) return;
+      EQ_BY_KEY[eq].goldenAttr.forEach(function (a) {
+        equipEntries.push({ key: a.key, value: a.value });
+      });
+    });
+    affix.entries.forEach(function (e) { equipEntries.push({ key: e.key, value: e.value }); });
+
+    var weaponSet = SET_BY_KEY[workspace.weaponSetKey];
+    if (weaponSet) weaponSet.attr.forEach(function (a) { equipEntries.push({ key: a.key, value: a.value }); });
+
+    var bowSet = SET_BY_KEY[workspace.bowSetKey];
+    if (bowSet) bowSet.attr.forEach(function (a) { equipEntries.push({ key: a.key, value: a.value }); });
+
+    var arsenal = ARSENAL_BY_KEY[workspace.arsenalKey];
+    if (arsenal) arsenal.attr.forEach(function (a) { equipEntries.push({ key: a.key, value: a.value }); });
+
+    var baseEntries = D.attributes.map(function (a) { return { key: a.key, value: a.value }; });
+    var martialEntries = [];
+    martials.forEach(function (m) {
+      (m.attr || []).forEach(function (a) { martialEntries.push({ key: a.key, value: a.value }); });
+    });
+    var mindEntries = [];
+    minds.forEach(function (m) {
+      (m.attr || []).forEach(function (a) { mindEntries.push({ key: a.key, value: a.value }); });
+    });
+
+    var merged = mergeEntries([].concat(baseEntries, equipEntries, martialEntries, mindEntries));
+
+    var src = mergeEntries([], merged);
+    var talentMap = {};
+    martials.forEach(function (m) {
+      var details = [];
+      var pairs = m.needKey1 || [];
+      for (var i = 0; i < pairs.length; i += 2) {
+        var detect = pairs[i];
+        var reward = pairs[i + 1];
+        if (!detect || !detect.key || !reward || !reward.key) continue;
+        var need = num(detect.value);
+        var current = roundTo(num(src[detect.key]), 2);
+        var ratio = need > 0 ? Math.min(Math.max(current / need, 0), 1) : 0;
+        var effective = roundTo(num(reward.value) * ratio, 2);
+        details.push({
+          martialKey: m.key,
+          pairIndex: i / 2,
+          detectionAttr: { key: detect.key, value: need },
+          rewardAttr: { key: reward.key, value: num(reward.value) },
+          currentDetectionValue: current,
+          progressRatio: ratio,
+          effectiveRewardAttr: { key: reward.key, value: effective }
+        });
+        if (effective) src = mergeEntries([{ key: reward.key, value: effective }], src);
+      }
+      talentMap[m.key] = details;
+    });
+
+    var equipSourceMap = mergeEntries(affix.entries);
+    var combined = applyConversions(applyBenefit(src, equipSourceMap));
+    var rows = buildRows(build, src, equipSourceMap, combined);
+
+    var talentGroups = martials.map(function (m) {
+      return {
+        martialKey: m.key,
+        martialName: keyName(m.key),
+        details: talentMap[m.key] || []
+      };
+    });
+
+    return {
+      buildKey: build,
+      affix: affix,
+      rows: rows,
+      combined: combined,
+      sourceValues: src,
+      talentGroups: talentGroups
+    };
+  }
+
+  /* ---------- 状态 ---------- */
+
+  var state = {
+    buildKey: 'LIESHI_WEI',
+    workspaces: {},
+    snapshot: null
+  };
+
+  function defaultMindSlots(build) {
+    var preset = DEFAULT_MINDS[build];
+    var slots;
+    if (preset && preset.length) {
+      slots = preset.slice(0, 4);
+    } else {
+      slots = D.minds.filter(function (m) { return m.buildKey === build; })
+        .slice(0, 4)
+        .map(function (m) { return m.key; });
+    }
+    while (slots.length < 4) slots.push(null);
+    return slots;
+  }
+
+  function defaultArsenal(build) {
+    var ms = martialsByBuild(build);
+    return ms.length ? (ms[0].elementKey || null) : null;
+  }
+
+  function ensureWorkspace(build) {
+    if (!state.workspaces[build]) {
+      state.workspaces[build] = {
+        mindSlots: defaultMindSlots(build),
+        weaponSetKey: DEFAULT_WEAPON_SET[build] || null,
+        bowSetKey: DEFAULT_BOW_SET,
+        arsenalKey: defaultArsenal(build),
+        affixCounts: {}
+      };
+    }
+    return state.workspaces[build];
+  }
+
+  /* ---------- 渲染 ---------- */
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderBuildGrid() {
+    var el = document.getElementById('buildGrid');
+    el.innerHTML = BUILDS.map(function (b) {
+      var ms = martialsByBuild(b).slice(0, 2);
+      var sub = ms.map(function (m) {
+        return keyName(m.key);
+      }).join(' / ');
+      return '<button type="button" class="build-btn' + (b === state.buildKey ? ' is-active' : '') + '" data-build="' + esc(b) + '">'
+        + '<span class="bname">' + esc(keyName(b)) + '</span>'
+        + '<span class="bmeta">' + esc(sub || '—') + '</span>'
+        + '</button>';
+    }).join('');
+  }
+
+  function mindOptions(slotIndex, current) {
+    var w = ensureWorkspace(state.buildKey);
+    var used = {};
+    w.mindSlots.forEach(function (k, i) {
+      if (i !== slotIndex && k) used[k] = true;
+    });
+    var opts = ['<option value="">未选择</option>'];
+    D.minds.forEach(function (m) {
+      var dis = used[m.key] ? ' disabled' : '';
+      var sel = m.key === current ? ' selected' : '';
+      opts.push('<option value="' + esc(m.key) + '"' + dis + sel + '>' + esc(keyName(m.key)) + '</option>');
+    });
+    return opts.join('');
+  }
+
+  function attrSummary(attr) {
+    if (!attr || !attr.length) return '';
+    return attr.map(function (a) {
+      var v = fmtRaw(a.value);
+      var sign = a.value > 0 ? '+' : '';
+      return keyName(a.key) + ' ' + sign + v + (isPercent(a.key) ? '%' : '');
+    }).join(' / ');
+  }
+
+  function setOptions(list, current, withAttr) {
+    var opts = ['<option value="">未选择</option>'];
+    list.forEach(function (item) {
+      var label = keyName(item.key);
+      if (withAttr) {
+        var d = attrSummary(item.attr);
+        if (d) label += '（' + d + '）';
+      }
+      var sel = item.key === current ? ' selected' : '';
+      opts.push('<option value="' + esc(item.key) + '"' + sel + '>' + esc(label) + '</option>');
+    });
+    return opts.join('');
+  }
+
+  function renderConfig() {
+    var w = ensureWorkspace(state.buildKey);
+    var html = '';
+    for (var i = 0; i < 4; i++) {
+      html += '<label class="field"><span>心法 ' + (i + 1) + '</span><select data-mind="' + i + '">'
+        + mindOptions(i, w.mindSlots[i] || '') + '</select></label>';
+    }
+    html += '<label class="field"><span>武器套装</span><select data-set="weaponSetKey">'
+      + setOptions(D.sets.filter(function (s) { return s.type === 0; }), w.weaponSetKey || '') + '</select></label>';
+    html += '<label class="field"><span>弓箭套装</span><select data-set="bowSetKey">'
+      + setOptions(D.sets.filter(function (s) { return s.type === 1; }), w.bowSetKey || '', true) + '</select></label>';
+    html += '<label class="field"><span>武库</span><select data-set="arsenalKey">'
+      + setOptions(D.arsenals, w.arsenalKey || '') + '</select></label>';
+    document.getElementById('configFields').innerHTML = html;
+  }
+
+  function renderTalent(snap) {
+    var el = document.getElementById('talentBody');
+    var groups = snap.talentGroups.filter(function (g) { return g.details.length > 0; });
+    if (!groups.length) {
+      el.innerHTML = '<div class="empty-hint">当前流派暂无武学天赋数据</div>';
+      return;
+    }
+    el.innerHTML = groups.map(function (g) {
+      var rows = g.details.map(function (d) {
+        var pct = Math.round(d.progressRatio * 1000) / 10;
+        var detectCurrent = stringifyAttr(d.detectionAttr.key, d.currentDetectionValue);
+        var detectNeed = stringifyAttr(d.detectionAttr.key, d.detectionAttr.value);
+        var rewardNow = stringifyAttr(d.rewardAttr.key, d.effectiveRewardAttr.value);
+        var rewardNeed = stringifyAttr(d.rewardAttr.key, d.rewardAttr.value);
+        return '<div class="talent-detail">'
+          + '<div class="talent-line"><span class="k">需求属性</span><span class="v">'
+          + esc(keyName(d.detectionAttr.key)) + ' <b>' + esc(detectCurrent) + '</b> / ' + esc(detectNeed)
+          + '</span></div>'
+          + '<div class="talent-bar"><i style="width:' + Math.min(100, Math.max(0, pct)) + '%"></i></div>'
+          + '<div class="talent-line"><span class="k">奖励属性</span><span class="v">'
+          + esc(keyName(d.rewardAttr.key)) + ' <b>' + esc(rewardNow) + '</b> / ' + esc(rewardNeed)
+          + '</span></div>'
+          + '</div>';
+      }).join('');
+      return '<div class="talent-group">'
+        + '<div class="talent-name"><b>' + esc(g.martialName) + '</b><span class="ratio">'
+        + g.details.length + ' 条判定</span></div>' + rows + '</div>';
+    }).join('');
+  }
+
+  function renderSummary(snap) {
+    var el = document.getElementById('summaryRows');
+    document.getElementById('affixTotal').textContent = String(snap.affix.totalCount);
+    if (!snap.rows.length) {
+      el.innerHTML = '<div class="empty-hint">当前 DIY 配置暂无属性</div>';
+      return;
+    }
+    el.innerHTML = snap.rows.map(function (r) {
+      var hasSecond = !!r.secondaryValue;
+      var cls = hasSecond ? 'raw' : 'main';
+      var tone = r.valueTone ? ' ' + r.valueTone : '';
+      return '<div class="attr-row">'
+        + '<span class="attr-label">' + esc(r.label) + '</span>'
+        + '<strong class="attr-value">'
+        + '<span class="' + cls + tone + '">' + esc(r.primaryValue) + '</span>'
+        + (hasSecond ? '<span class="main' + tone + '">' + esc(r.secondaryValue) + '</span>' : '')
+        + '</strong></div>';
+    }).join('');
+  }
+
+  function renderAffixSummary(snap) {
+    var el = document.getElementById('affixSummary');
+    document.getElementById('affixCount').textContent = snap.affix.totalCount + ' 条';
+    if (!snap.affix.summaryRows.length) {
+      el.innerHTML = '<div class="empty-hint">右侧勾选词条后显示数量和值</div>';
+      return;
+    }
+    var combined = snap.combined;
+    el.innerHTML = snap.affix.summaryRows.map(function (item) {
+      var primary = stringifyAttr(item.key, item.totalValue);
+      var second = '';
+      if (isRateKey(item.key)) {
+        var c = item.key === 'ACCURACY_RATE'
+          ? accConvert(roundTo(item.totalValue, 4), num(combined.LEVEL_RESISTANCE))
+          : computed(item.key, item.totalValue, combined);
+        second = '(' + c.toFixed(2) + '%)';
+      }
+      return '<div class="affix-sum-row">'
+        + '<span class="as-label">' + esc(item.label) + '<i>× ' + item.count + '</i></span>'
+        + '<span class="as-value">' + esc(primary) + (second ? '<small>' + esc(second) + '</small>' : '') + '</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  function renderTable(snap) {
+    var build = snap.buildKey;
+    var cells = {};
+    snap.affix.cells.forEach(function (c) { cells[c.cellKey] = c; });
+    var slots = slotEquipment(build);
+
+    var head = '<thead><tr><th class="row-head">词条</th>';
+    PARTS.forEach(function (p) {
+      var isWeapon = p.key === 'weaponOne' || p.key === 'weaponTwo';
+      var label = p.label;
+      var cls = 'col-label';
+      if (isWeapon) {
+        var eq = slots[p.key];
+        label = eq ? (WEAPON_LABEL[eq] || keyName(eq)) : '--';
+        cls += ' weapon';
+      }
+      var count = snap.affix.columnCounts[p.key] || 0;
+      var over = count > 5 ? ' is-over' : '';
+      head += '<th class="' + over + '">'
+        + '<span class="' + cls + '">' + esc(label) + '</span>'
+        + '<span class="col-count">' + count + '/5</span>'
+        + '</th>';
+    });
+    head += '</tr></thead>';
+
+    var body = '<tbody>';
+    var lastGroup = null;
+    ROWS.forEach(function (row) {
+      var groupStart = lastGroup !== null && lastGroup !== row.group;
+      lastGroup = row.group;
+      body += '<tr' + (groupStart ? ' class="is-group-start"' : '') + '>'
+        + '<th class="row-head">' + esc(row.label) + '</th>';
+      PARTS.forEach(function (p) {
+        var c = cells[row.key + '::' + p.key];
+        var over = snap.affix.columnCounts[p.key] > 5 ? ' is-over' : '';
+        var disabled = !c || c.disabled;
+        var active = c && c.count > 0;
+        var text = disabled ? '--' : (c.count + '/' + c.max);
+        var partLabel = (p.key === 'weaponOne' || p.key === 'weaponTwo')
+          ? (slots[p.key] ? (WEAPON_LABEL[slots[p.key]] || '武器') : '--')
+          : p.label;
+        var title = disabled
+          ? (row.label + ' / ' + partLabel + '：不可选')
+          : (row.label + ' / ' + partLabel + '：' + keyName(c.key) + '，承音值 ' + c.unit);
+        body += '<td class="' + over + '">'
+          + '<button type="button" class="cell-btn' + (active ? ' is-active' : '') + '"'
+          + (disabled ? ' disabled' : '')
+          + ' title="' + esc(title) + '"'
+          + ' data-row="' + esc(row.key) + '" data-part="' + esc(p.key) + '">'
+          + esc(text) + '</button></td>';
+      });
+      body += '</tr>';
+    });
+    body += '</tbody>';
+
+    document.getElementById('affixTable').innerHTML = head + body;
+  }
+
+  /* ---------- 交互 ---------- */
+
+  function refresh() {
+    var w = ensureWorkspace(state.buildKey);
+    var snap = computeAll(state.buildKey, w);
+    state.snapshot = snap;
+    renderTalent(snap);
+    renderSummary(snap);
+    renderAffixSummary(snap);
+    renderTable(snap);
+  }
+
+  function selectBuild(build) {
+    if (BUILDS.indexOf(build) < 0) return;
+    state.buildKey = build;
+    ensureWorkspace(build);
+    renderBuildGrid();
+    renderConfig();
+    refresh();
+  }
+
+  function setMindSlot(index, value) {
+    var w = ensureWorkspace(state.buildKey);
+    var v = value || null;
+    if (v) {
+      var dup = w.mindSlots.some(function (k, i) { return i !== index && k === v; });
+      if (dup) return;
+    }
+    w.mindSlots[index] = v;
+    renderConfig();
+    refresh();
+  }
+
+  function setConfig(field, value) {
+    var w = ensureWorkspace(state.buildKey);
+    w[field] = value || null;
+    refresh();
+  }
+
+  function toggleCell(rowKey, partKey) {
+    var snap = state.snapshot;
+    if (!snap) return;
+    var cell = null;
+    for (var i = 0; i < snap.affix.cells.length; i++) {
+      var c = snap.affix.cells[i];
+      if (c.rowKey === rowKey && c.partKey === partKey) { cell = c; break; }
+    }
+    if (!cell || cell.disabled) return;
+    var w = ensureWorkspace(state.buildKey);
+    var current = num(w.affixCounts[cell.cellKey]);
+    var next = current + 1 > cell.max ? 0 : current + 1;
+    if (next === 0) delete w.affixCounts[cell.cellKey];
+    else w.affixCounts[cell.cellKey] = next;
+    refresh();
+  }
+
+  document.getElementById('buildGrid').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-build]');
+    if (btn) selectBuild(btn.getAttribute('data-build'));
+  });
+
+  document.getElementById('configFields').addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-mind')) {
+      setMindSlot(Number(t.getAttribute('data-mind')), t.value);
+    } else if (t.hasAttribute('data-set')) {
+      setConfig(t.getAttribute('data-set'), t.value);
+    }
+  });
+
+  document.getElementById('affixTable').addEventListener('click', function (e) {
+    var btn = e.target.closest('.cell-btn');
+    if (!btn || btn.disabled) return;
+    toggleCell(btn.getAttribute('data-row'), btn.getAttribute('data-part'));
+  });
+
+  /* ---------- 启动 ---------- */
+
+  var ver = D.currentVersion || {};
+  document.getElementById('versionTag').textContent = (ver.key || '') + (ver.name ? ' · ' + ver.name : '');
+
+  renderBuildGrid();
+  ensureWorkspace(state.buildKey);
+  renderConfig();
+  refresh();
+
+  window.__DIY__ = {
+    state: state,
+    computeAll: computeAll,
+    affixSnapshot: affixSnapshot,
+    ensureWorkspace: ensureWorkspace,
+    selectBuild: selectBuild,
+    refresh: refresh
+  };
+})();
+
+  </script>
+</body>
+</html>
